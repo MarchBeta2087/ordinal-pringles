@@ -75,16 +75,16 @@ const energyUpgradeData = [
             isUnlock: false,
         },
         {
-            desc: '??? (Coming Soon)', // Unlock a new Singularity Effect
+            desc: "Unlock the Ringularity's first Singularity Effect",
             sign: 'x',
-            cost: Infinity,
+            cost: 3,
             eff: () => D(1),
             hasExtraReq: false,
             extraReq: true,
             extraReqText: '',
             node: 106,
-            baseValue: 0,
-            isUnlock: false,
+            baseValue: 1,
+            isUnlock: true,
         },
     ],
     [

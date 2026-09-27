@@ -23,7 +23,7 @@ function incrementyGain() {
     let iupMults = base.times(iup1Effect()).times(iup3Effect()).times(iup4Effect())
     let otherMults = iupMults.times(getHierarchyEffect(0)).times(alephEffect(3)).times(getCUPEffect(4)).times(getBUPEffect(14))
         .times(getUnstableFactorEffect(0))
-    return otherMults.div(negativeChargeEffect(false))
+    return otherMults.div(negativeChargeEffect(false)).times(getRingularityEffect(4))
 }
 
 const iupDesc = ['Double Incrementy Gain', 'Triple Dynamic Gain', 'Dynamic Factor boosts Incrementy gain',
@@ -164,7 +164,7 @@ function respecCharge(c=false){
         DOM(`bup${i}`).style.color = `#8080FF`
         if(data.boost.hasBUP[i]) DOM(`bup${i}`).style.backgroundColor = `#002480`
     }
-    data.incrementy.charge = data.incrementy.totalCharge-data.sing.level[0]
+    data.incrementy.charge = data.incrementy.totalCharge-data.sing.level[0]-data.sing.level[1]
     data.boost.bottomRowCharges = 0
     if(hasSluggishMilestone(3)) updateBUPInfoText()
     if(!c) chalExit()

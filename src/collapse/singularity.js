@@ -1,8 +1,45 @@
 let singularityNames = ["Singularity", "Ringularity"]
+
+// The Ringularity is the Endgame of the game: its Density reaches up to 2000 (H_omega^3 2).
+const SINGULARITY_BASE_CAP = 500
+const RINGULARITY_CAP = 2000
+let ringularityMilestones = [
+    {density: 100, capBonus: 50, boosts: [0]},
+    {density: 300, capBonus: 100, boosts: [1]},
+    {density: 600, capBonus: 200, boosts: [2]},
+    {density: 1000, capBonus: 400, boosts: [0, 1, 2]},
+    {density: 1500, capBonus: 800, boosts: []},
+]
+let hasRingularity = () => hasSingFunction(9)
+let hasReachedRingularityEndgame = () => data.sing.level[1] >= RINGULARITY_CAP
+let getRingularityMilestonesReached = () => ringularityMilestones.filter(m => data.sing.highestLevel[1] >= m.density).length
+function ringularityCapBonus(){
+    let total = 0
+    for (let i = 0; i < ringularityMilestones.length; i++) {
+        if(data.sing.highestLevel[1] >= ringularityMilestones[i].density) total += ringularityMilestones[i].capBonus
+    }
+    return total
+}
+function singEffectBoost(i){
+    let total = 0
+    for (let m = 0; m < ringularityMilestones.length; m++) {
+        if(data.sing.highestLevel[1] >= ringularityMilestones[m].density && ringularityMilestones[m].boosts.includes(i)) ++total
+    }
+    return total
+}
+// The Singularity's cap is raised by the Ringularity; the Ringularity's own cap is the Endgame goal.
+let singCap = (i) => i === 0 ? SINGULARITY_BASE_CAP + ringularityCapBonus() : RINGULARITY_CAP
+
 function updateAllSingularityHTML(){
+    checkRingularityEndgame()
     for (let i = 0; i < data.sing.level.length; i++) {
         updateSingularityHTML(i)
     }
+}
+function checkRingularityEndgame(){
+    if(!hasReachedRingularityEndgame() || data.sing.endgame) return
+    data.sing.endgame = true
+    createAlert('ENDGAME!', 'Your Ringularity has reached a Density of H<sub>&omega;<sup>3</sup>2</sub>, and with it the Endgame! Thank you for playing Ordinal Pringles :)', 'Wow!')
 }
 function updateSingularityHTML(n){
     DOM(`singCostText`).innerHTML = `You have <span style="color: goldenrod">${data.incrementy.charge} Charge</span>`
@@ -33,6 +70,13 @@ function updateSingLevelHTML(n){
         let index = (n*3)+i
         DOM(`sing${n}Effect${i}`).innerHTML = `Your ${singularityNames[n]} is ${singEffects[index].desc()} <b>${format(singEffects[index].effect(), 3)}</b>`
     }
+
+    if(n === 1){
+        DOM(`ringularityCapText`).innerHTML = `Your Ringularity has raised the Singularity's Density cap to <b>H<sub>&omega;<sup>2</sup>5</sub> + ${ringularityCapBonus()}</b> (${getRingularityMilestonesReached()}/${ringularityMilestones.length} Milestones reached)`
+        DOM(`ringularityEndgameText`).innerHTML = hasReachedRingularityEndgame()
+            ? `<b style="color: gold">ENDGAME REACHED! Your Ringularity is as dense as it will ever get!</b>`
+            : `Endgame Progress: <b>${formatWhole(data.sing.level[1])} / ${RINGULARITY_CAP}</b>`
+    }
 }
 function updateSingFunctionHTML(i){
     if(i >= data.sing.hasEverHadFunction.length) return
@@ -56,7 +100,7 @@ function checkPermanentFunctions(){
 function loadSingularityHTML(){
     updateAllSingLevelHTML()
     for (let i = 0; i < data.sing.level.length; i++) {
-        DOM(`singSlider${i}`).max = Math.max(1, maxSingLevel(i))
+        DOM(`singSlider${i}`).max = Math.max(1, singCap(i))
         DOM(`singSlider${i}`).value = data.sing.level[i]
     }
 }
@@ -79,23 +123,37 @@ function initSingularityFunctions(){
 
 let lastSingFunctionUnlockedIndex = 0
 let singEffects = [
-    {desc: () => "raising Cardinal gain to the", effect: () => (1 + (Math.sqrt(data.sing.level[0])/100))*(alephEffect(8).toNumber())},
-    {desc: () => `${hasTreeUpgrade(104) ? 'Increasing' : 'Decreasing'} the Decrementy gain exponent by`, effect: () => Math.sqrt(data.sing.level[0])/50},
-    {desc: () => "raising AutoBuyer speed to the", effect: () => (1-Math.pow(data.sing.level[0], 1/2)/100)+(getEUPEffect(1, 4, true))},
+    {desc: () => "raising Cardinal gain to the", effect: () => (1 + (Math.sqrt(data.sing.level[0])/100) + 0.1*singEffectBoost(0))*(alephEffect(8).toNumber())},
+    {desc: () => `${hasTreeUpgrade(104) ? 'Increasing' : 'Decreasing'} the Decrementy gain exponent by`, effect: () => Math.sqrt(data.sing.level[0])/50 + 0.1*singEffectBoost(1)},
+    {desc: () => "raising AutoBuyer speed to the", effect: () => (1-Math.pow(data.sing.level[0], 1/2)/100)+(getEUPEffect(1, 4, true)) + 0.1*singEffectBoost(2)},
 
-    {desc: () => "Coming Soon!", effect: () => 1},
-    {desc: () => `???`, effect: () => 1},
-    {desc: () => "???", effect: () => 1},
+    {desc: () => `multiplying Cardinal gain by${hasTreeUpgrade(106) ? '' : ' (Locked: requires Energy Upgrade 106)'}`, effect: () => getRingularityEffect(3)},
+    {desc: () => "multiplying Incrementy gain by", effect: () => getRingularityEffect(4)},
+    {desc: () => "multiplying all Aleph Effects by", effect: () => getRingularityEffect(5)},
 ]
-let maxSingLevel = (i) => data.sing.level[i] > 499 ? 500 : Math.min(500, data.incrementy.charge)
+/*
+    The Ringularity's Effects are powered by its Density and only apply once the Ringularity is unlocked.
+    The first one is additionally locked behind Energy Upgrade 106.
+*/
+let getRingularityEffect = (i) => {
+    if(!hasRingularity()) return 1
+    if(i === 3) return hasTreeUpgrade(106) ? 1 + data.sing.level[1]/20 : 1
+    if(i === 4) return 1 + data.sing.level[1]/10
+    if(i === 5) return 1 + data.sing.level[1]/100
+    return 1
+}
+let maxSingLevel = (i) => Math.max(0, Math.min(singCap(i) - data.sing.level[i], data.incrementy.charge))
 
 function changeSingLevel(i, single = false){
     if(inPurification(3)) return
-    DOM(`singSlider${i}`).max = Math.max(1, Math.min(maxSingLevel(i)+data.sing.level[0], 500)) //TODO: Allow for multiple Singularities here.
+    if(i === 1 && !hasRingularity()) return
+    DOM(`singSlider${i}`).max = Math.max(1, singCap(i))
 
     let change = single ? data.sing.level[i] + 1 : parseInt(DOM(`singSlider${i}`).value)
+    if(isNaN(change)) return
+    change = Math.min(Math.max(change, 0), singCap(i))
     let cost = change-data.sing.level[i]
-    if(single && data.incrementy.charge === 0) return showNotification('Insufficient Charge!')
+    if(single && data.incrementy.charge < 1) return showNotification('Insufficient Charge!')
     if(!single && data.incrementy.charge - cost < 0) return showNotification('Insufficient Charge!')
 
     if(single) --data.incrementy.charge
@@ -105,9 +163,10 @@ function changeSingLevel(i, single = false){
 
     updateSingFunctionUnlocks()
 
-    if(data.sing.level > data.sing.highestLevel[i]) data.sing.highestLevel[i] = data.sing.level[i]
+    if(data.sing.level[i] > data.sing.highestLevel[i]) data.sing.highestLevel[i] = data.sing.level[i]
 
     updateSingLevelHTML(i)
+    DOM(`singSlider${i}`).value = data.sing.level[i]
 }
 
 function updateSingFunctionUnlocks(){
@@ -126,16 +185,20 @@ function updateSingFunctionUnlocks(){
 */
 function singControl(i, n){
     if(inPurification(3)) return
+    if(n === 1 && !hasRingularity()) return
     if(i === 0){
-        if(data.incrementy.charge+data.sing.level[n] >= 500){
-            if(data.sing.level[n] !== 500) data.incrementy.charge -= 500-data.sing.level[n]
-            data.sing.level[n] = 500
+        let cap = singCap(n)
+        if(data.incrementy.charge+data.sing.level[n] >= cap){
+            if(data.sing.level[n] !== cap) data.incrementy.charge -= cap-data.sing.level[n]
+            data.sing.level[n] = cap
+            if(data.sing.level[n] > data.sing.highestLevel[n]) data.sing.highestLevel[n] = data.sing.level[n]
             updateSingLevelHTML(n)
             updateSingFunctionUnlocks()
             return DOM(`singSlider${n}`).value = data.sing.level[n]
         }
-        data.sing.level[n] = data.sing.level[n]+maxSingLevel(n)
-        data.incrementy.charge -= maxSingLevel(n)
+        let gain = maxSingLevel(n)
+        data.sing.level[n] = data.sing.level[n]+gain
+        data.incrementy.charge -= gain
         if(data.sing.level[n] > data.sing.highestLevel[n]) data.sing.highestLevel[n] = data.sing.level[n]
         updateSingFunctionUnlocks()
     }
@@ -144,7 +207,7 @@ function singControl(i, n){
         data.sing.level[n] = 0
     }
     if(i === 2){
-        if(data.sing.level[n] === 500) return
+        if(data.sing.level[n] === singCap(n)) return
         changeSingLevel(n, true)
     }
     updateSingLevelHTML(n)
@@ -162,7 +225,7 @@ let singFunctions = [
     {requiredLevel: 72, hasUnlock: true, unlockDescription: 'Unlock Purification', canBePerm: true, permReq: () => data.incrementy.totalCharge > 71},
     {requiredLevel: 80, hasUnlock: true, unlockDescription: 'The second Darkness Buyable now Quadruples the Dynamic Cap', canBePerm: false, permReq: () => false},
     {requiredLevel: 100, hasUnlock: true, unlockDescription: 'Reduce the Base in the Forgotten Realm by 15 for every ℶ<sub>&omega;</sub> Milestone obtained', effect: () => 15*checkAllIndexes(aomArray(), true), canBePerm: false, permReq: () => false},
-    {requiredLevel: 500, hasUnlock: true, unlockDescription: 'Unlock a Ringularity (Coming Soon!), but cap the Singularity\'s Density at H<sub>&omega;<sup>2</sup>5</sub>', canBePerm: true, permReq: () => data.incrementy.totalCharge > 499},
+    {requiredLevel: 500, hasUnlock: true, unlockDescription: 'Unlock a Ringularity, which has its own Density and Effects and can raise the Singularity\'s Density cap, but cap the Singularity\'s Density at H<sub>&omega;<sup>2</sup>5</sub>', canBePerm: true, permReq: () => data.incrementy.totalCharge > 499},
 ]
 
 let hasPermanentFunction = (i) => singFunctions[i].permReq()

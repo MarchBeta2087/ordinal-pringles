@@ -500,5 +500,36 @@ d22c73d  feat: Remove EUP401, impl EUP106     （origin/singularity-2；依赖 v
 
 ---
 
+## 附录 D：实现状态（Implementation Status）
+
+> 更新于 2026-09-28。勾选项表示已在代码中实现并通过冒烟测试（`tests/ringularity.smoke.js`，70/70 通过）。
+
+**已完成 —— M1 脚手架修复 + M2 Ringularity 机制 + FR-5 Endgame + FR-2（EUP 106）**
+
+- [x] 每座奇点的上限参数化：`singCap(0) = 500 + ringularityCapBonus()`、`singCap(1) = 2000`（`src/collapse/singularity.js`）
+- [x] Ringularity 里程碑（100/300/600/1000/1500 → 上限 +50/+100/+200/+400/+800），基于 `highestLevel[1]`（Obliteration 后清空）
+- [x] 里程碑强化 Singularity 的三个效果（`singEffectBoost(i)`，仅叠加、不改变索引语义）
+- [x] `singEffects[3..5]` 补全并接入计算链：× Cardinal 收益（EUP106 解锁）、× Incrementy 收益、× 全部 ℵ 效果
+- [x] Charge 账目去硬编码：`incrementy.js:167`、`collapse.js:312` 均扣除两座密度
+- [x] `changeSingLevel` / `singControl` / `maxSingLevel` 支持 `n = 1`，含 NaN 防护与上限钳制
+- [x] UI：解除 `#singularity1` 隐藏、标注正式文案、新增 `#ringularityControls` 按钮组与 `#ringularityCapText` / `#ringularityEndgameText`
+- [x] Endgame：Ringularity 密度 2000（H<sub>ω<sup>3</sup>2</sub>）判定 + 一次性提示（`data.sing.endgame`）+ 成就 "The Endgame"
+- [x] EUP 106 = "Unlock the Ringularity's first Singularity Effect"（`isUnlock: true`，`cost: 3`）；修复能量树 `Infinity` 显示
+- [x] 新字段 `data.sing.endgame` / `data.sing.ringularityTutorial`；旧存档自动取默认值（无需迁移）
+- [x] 首次解锁 Ringularity 的一次性教程弹窗（`data.sing.ringularityTutorial`）
+
+**未完成（后续里程碑）**
+
+- [ ] FR-3：EUP **305** 仍为占位（`energyUpgrades.js:250`）
+- [ ] FR-4：EUP **402** + Imaginary Shifts 机制仍为占位（`energyUpgrades.js:276`）
+- [ ] Q4：500–2000 区间的新增 `singFunctions`（当前 Ringularity 段仅有 5 个 Milestone 作为目标）
+- [ ] Q1/Q2/Q3 的数值平衡确认；Q7 通关后回路；Q8 版本号升级（`VERSION` 尚未改动）
+- [ ] §8 许可证交付物：`README.md` 署名 + "已修改" 声明、`CHANGELOG.md`
+
+**验证方式**：`node tests/ringularity.smoke.js "<仓库根目录>"`（纯离线、无需浏览器；覆盖上限/里程碑/账目/存档往返/锁定守卫/UI 显隐/Endgame 提示）。
+
+
+---
+
 *文档结束。实现阶段请以本文档的验收标准（§9）逐项勾选，并在 §11 的开放问题上先取得结论。*
 

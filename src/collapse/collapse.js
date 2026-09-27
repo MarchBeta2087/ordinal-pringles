@@ -180,12 +180,12 @@ function cardinalGain(){
     if(data.boost.times < 34) return D(0)
     let value = Decimal.sqrt(data.boost.times-34)
             .times(Decimal.log2((data.boost.times-34)+2)).times(Decimal.sqrt(data.boost.times-34)).plus(3)
-            .times(alephTotalEffect()).times(iup12Effect()).times(getAOMEffect(4)).times(getPringleEffect(2)).times(getUnstableFactorEffect(2)).pow(singEffects[0].effect())
+            .times(alephTotalEffect()).times(iup12Effect()).times(getAOMEffect(4)).times(getPringleEffect(2)).times(getUnstableFactorEffect(2)).pow(singEffects[0].effect()).times(getRingularityEffect(3))
     return softcap(value, D(1e200), 0.5, true)
 }
 
 let alephEffect = (i) => data.collapse.alephs[i].gt(0) && (!inPurification(1) || i === 0) && alephData[i].unl()
-    ? alephData[i].effect().times((i !== 8 ? getCUPEffect(6, false) : 1))
+    ? alephData[i].effect().times((i !== 8 ? getCUPEffect(6, false) : 1)).times(getRingularityEffect(5))
     : D(1)
 function getCUPEffect(i, number = true){
     if(number) return getCUPEffect(i, false).toNumber()
@@ -309,7 +309,7 @@ function collapseReset(){
     }
     else { data.incrementy.hasIUP = Array(12).fill(false) }
     data.incrementy.rebuyableAmt = Array(6).fill(0)
-    data.incrementy.charge = data.boost.unlocks[4] ? data.incrementy.totalCharge-data.sing.level[0] : 0
+    data.incrementy.charge = data.boost.unlocks[4] ? data.incrementy.totalCharge-data.sing.level[0]-data.sing.level[1] : 0
     data.incrementy.totalCharge = data.boost.unlocks[4] ? data.incrementy.totalCharge : 0
     updateIncrementyHTML()
     if(!hasSluggishMilestone(3)){

@@ -76,7 +76,12 @@ function switchSubtab(tab, mode){
                 data.sing.tutorial = true
             }
             DOM(`singFunction8`).style.display = hasAOMilestone(0) ? `block` : `none`
-            DOM(`singularity1`).style.display = /*hasSingFunction(9) ? `flex` :*/ `none`
+            DOM(`singularity1`).style.display = hasRingularity() ? `flex` : `none`
+            DOM(`ringularityControls`).style.display = hasRingularity() ? `flex` : `none`
+            if(hasRingularity() && !data.sing.ringularityTutorial){
+                createAlert('A new Singularity!', 'Your Singularity is now capped at H<sub>&omega;<sup>2</sup>5</sub>, but a <b>Ringularity</b> has appeared! Its own Density can be raised with Charge up to H<sub>&omega;<sup>3</sup>2</sub>, and every Milestone it reaches will raise the Singularity\'s Density cap and strengthen the Singularity\'s Effects! Reaching a Ringularity Density of H<sub>&omega;<sup>3</sup>2</sub> is the Endgame.', 'Let\'s go!')
+                data.sing.ringularityTutorial = true
+            }
             checkPermanentFunctions()
         }
         if(tab==="baseless"){

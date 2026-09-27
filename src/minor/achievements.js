@@ -388,6 +388,11 @@ let achievements = [
         description: "Discover the Secret! Don't worry, it has no effect on gameplay :)",
         req: () => data.gword.unl
     },
+    {
+        name: "The Endgame",
+        description: "Reach a Ringularity Density of ω³2",
+        req: () => hasReachedRingularityEndgame()
+    },
 ]
 
 function initAchs(){
