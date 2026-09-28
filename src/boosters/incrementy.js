@@ -82,6 +82,10 @@ function buyIUP(i){
 }
 function buyRUP(i){
     let reb = i > 2 ? i-6 : i
+    // Guard rail: only the indices 0-2 and 9-11 map onto a real repeatable upgrade. The indices 3-5
+    // used to look up rebuyableCostScalings[-3..-1] and threw "rebuyableCostScalings[i] is not a
+    // function"; anything unmapped is now a safe no-op.
+    if(reb < 0 || reb >= rebuyableCostScalings.length) return
     if(data.incrementy.amt.lt(getRebuyableCost(reb))) return
     data.incrementy.amt = data.incrementy.amt.sub(getRebuyableCost(reb))
     ++data.incrementy.rebuyableAmt[reb]
@@ -171,9 +175,12 @@ function respecCharge(c=false){
 }
 
 function sacrificeIncrementy(){
-    if(data.incrementy.amt.gte(chargeReq())){
+    let req = chargeReq()
+    // Guard rail: a non-finite requirement used to turn the amount into NaN ("Infinity - NaN"),
+    // which then had to be repaired on the next load.
+    if(Number.isFinite(req.mag) && data.incrementy.amt.gte(req)){
         // if(data.incrementy.totalCharge < 1) initBUPHover()
-        data.incrementy.amt = data.incrementy.amt.sub(chargeReq())
+        data.incrementy.amt = data.incrementy.amt.sub(req)
         ++data.incrementy.totalCharge
         ++data.incrementy.charge
 
@@ -186,6 +193,15 @@ function sacrificeIncrementy(){
 let chargeCostBase = () => 10
 function chargeReq() {
     let chargeExp = 6+((data.incrementy.totalCharge+data.darkness.sacrificedCharge)*(2+Math.floor((data.incrementy.totalCharge+data.darkness.sacrificedCharge)/12)));
-    chargeExp -= Decimal.log10(getHierarchyEffect(1));
+    /*
+        Guard rails: a non-finite Hierarchy effect used to make this exponent NaN, and BreakEternity's
+        own Decimal.pow(-Infinity) is NaN too, so the requirement became NaN and wiped the Incrementy
+        amount. A non-finite logarithm means an astronomically large Hierarchy effect, so it is
+        clamped - which keeps the previous (effectively free Charge) behaviour, but finite.
+    */
+    let logValue = Decimal.log10(getHierarchyEffect(1)).toNumber();
+    if(!Number.isFinite(logValue)) logValue = Number.MAX_VALUE;
+    chargeExp -= logValue;
+    if(!Number.isFinite(chargeExp)) chargeExp = -Number.MAX_VALUE;
     return D(chargeCostBase()).pow(chargeExp);
 }

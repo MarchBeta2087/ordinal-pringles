@@ -102,7 +102,9 @@ let bupData = [
     {
         desc: "The Total ℵ effect applies to Incrementy gain",
         cost: 3562,
-        eff: () => alephTotalEffect()*getOverflowEffect(7),
+        // Decimal math on purpose: "alephTotalEffect() * number" overflows to a JS Infinity once the
+        // Alephs get large, which then poisons Incrementy gain (see chargedBUPData[14]).
+        eff: () => alephTotalEffect().times(getOverflowEffect(7)),
         baseEff: () => 1,
         bottomRow: true
     },
@@ -183,7 +185,13 @@ let chargedBUPData = [
     },
     {
         desc: "The Total ℵ effect is multiplied by Darkness Upgrade 1 and applied to Incrementy gain",
-        eff: () => alephTotalEffect()*dupEffect(0)*getOverflowEffect(7),
+        /*
+            Decimal math on purpose: mixing the Decimal alephTotalEffect() with plain numbers used to
+            overflow to a JS Infinity (9.77e270 * 8.29e54 = 1e325), which made incrementyGain()
+            "Infinity", chargeReq() NaN, the Incrementy amount NaN and finally crashed format() with
+            "RangeError: Maximum call stack size exceeded".
+        */
+        eff: () => alephTotalEffect().times(dupEffect(0)).times(getOverflowEffect(7)),
         bottomRow: true
     },
 ]

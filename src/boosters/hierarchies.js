@@ -143,6 +143,14 @@ let hupData = [
 function increaseHierarchies(diff){
     for (let i = 0; i < data.hierarchies.ords.length; i++) {
         let n = hierarchyData[i].gain().times(diff/1000)
+        /*
+            Guard rails: while a resource was broken, the Hierarchies gain could be NaN, and writing
+            that into the Hierarchy Ordinal made calcOrdPoints() recurse until the stack overflowed.
+            A NaN gain is treated as no gain, and an already-broken Ordinal is reset.
+        */
+        if (isNaN(n.mag) || isNaN(n.layer) || isNaN(n.sign)) n = D(0)
+        if (isNaN(data.hierarchies.ords[i].ord.mag) || isNaN(data.hierarchies.ords[i].ord.layer) || isNaN(data.hierarchies.ords[i].ord.sign)) data.hierarchies.ords[i].ord = D(0)
+        if (isNaN(data.hierarchies.ords[i].over.mag) || isNaN(data.hierarchies.ords[i].over.layer) || isNaN(data.hierarchies.ords[i].over.sign)) data.hierarchies.ords[i].over = D(0)
         // Successor
         if (data.hierarchies.ords[i].ord.mod(hierarchyData[i].base()).eq(hierarchyData[i].base() - 1) && data.hierarchies.ords[i].ord.lt(Number.MAX_SAFE_INTEGER)) data.hierarchies.ords[i].over = data.hierarchies.ords[i].over.plus(n)
         else data.hierarchies.ords[i].ord = data.hierarchies.ords[i].ord.plus(n)
@@ -160,6 +168,7 @@ function increaseHierarchies(diff){
         }
 
         if (data.hierarchies.ords[i].ord.eq(Infinity)) data.hierarchies.ords[i].ord = D(Number.MAX_VALUE)
+        if (isNaN(data.hierarchies.ords[i].ord.mag) || isNaN(data.hierarchies.ords[i].ord.layer) || isNaN(data.hierarchies.ords[i].ord.sign)) data.hierarchies.ords[i].ord = D(0)
     }
 }
 

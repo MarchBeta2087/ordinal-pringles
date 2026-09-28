@@ -14,6 +14,7 @@ const uHTML = {
         DOM('obliterateNav').style.display = data.obliterate.times > 0 ?'block':'none'
         DOM(getAdaptiveButton('factorBoostButton')).style.display = data.boost.times>0 || data.collapse.times>0 || data.obliterate.times>0?'inline-block':'none'
         DOM('obliterateButton').style.display = isObliterationUnlocked() ? 'block' : 'none'
+        updateEndgameButtonHTML()
 
         if(data.markup.shifts === 7 || data.chal.active[4]) DOM('dynamicTab').addEventListener('click', _=> switchSubtab('dynamic', 'markup'))
 

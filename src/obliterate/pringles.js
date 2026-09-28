@@ -234,7 +234,16 @@ function buyPringle(localPringleData, index){
 
 let getPringleData = (i) => pringleData[i]
 
-let getPringleEffectBaseline = (i) => Decimal.max(pringleData[i].baseValue, (pringleData[i].eff()))
+/*
+    EUP 305: "Cardinals boost all Perfected Pringles". Every Pringle named "Perfected"
+    (2 = Green, 5 = Orange, 8 = Blue) gets the Cardinal multiplier on top of its own effect.
+    The boost is applied to the baseline, so both the hover text and the effect that other
+    systems read (cardinalGain, alephNullGain, getHBuyableCap, ...) stay consistent.
+*/
+let isPerfectedPringle = (i) => pringleData[i].name === 'Perfected'
+let getEUPEffect305Boost = (i) => hasTreeUpgrade(305) && isPerfectedPringle(i) ? getEUPEffect(3, 4) : D(1)
+
+let getPringleEffectBaseline = (i) => Decimal.max(pringleData[i].baseValue, (pringleData[i].eff())).times(getEUPEffect305Boost(i))
 let getPringleEffect = (i, number = false) => number
     ? getPringleEffect(i).toNumber()
     : (isPringleAssigned(i) && data.obliterate.pringleAmount[i] > 0) ? Decimal.max(pringleData[i].baseValue, getPringleEffectBaseline(i).times(getPurityStrength(getPringleAssignment(i)))): D(pringleData[i].baseValue)

@@ -100,6 +100,15 @@ let extraDUPLevels = [
 ]
 
 function buyDrain(i) {
+    /*
+        Guard rails: only drainData.length Drains exist. An out-of-range index (e.g. 7) used to read an
+        undefined ledger entry, which made drainCost() NaN and poisoned negativeCharge / chargeSpent /
+        the whole drains array with NaN. A NaN number is serialized as null, which then made
+        unpackSave() throw on the next load.
+    */
+    if(i < 0 || i >= drainData.length) return
+    if(!Number.isFinite(data.darkness.negativeCharge)) data.darkness.negativeCharge = 0
+    if(!Number.isFinite(data.darkness.chargeSpent)) data.darkness.chargeSpent = 0
     if (!hasCUP(i)) return showNotification("The Cardinal Upgrade must be purchased before being drained!")
     if (data.darkness.negativeCharge < drainCost(i)) return showNotification("Insufficient Negative Charge")
 

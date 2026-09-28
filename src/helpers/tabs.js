@@ -53,6 +53,14 @@ function switchSubtab(tab, mode){
         }
     }
 
+    // Special Markup Rules
+    if(mode === "markup"){
+        if(tab === "factor"){
+            DOM(`imaginaryShiftButton`).style.display = hasImaginaryShifts() ? 'block' : 'none'
+            DOM(`iFactorContainer`).style.display = hasImaginaryShifts() ? 'flex' : 'none'
+        }
+    }
+
     // Special Collapse Rules
     if(mode === "collapse"){
         DOM(`collapseInfoContainer`).style.display = tab==='purification' ? 'none' : 'flex'

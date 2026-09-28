@@ -23,8 +23,22 @@ let getExtraBoosters = () => Math.max(0, data.boost.total-maxNonOverflowBoosters
 let getExtraCharge = () => Math.max(0, data.incrementy.totalCharge-12)
 
 function getOverflowGain(i){
-    if (i === 0) return (Math.sqrt(getExtraBoosters())/10)*(alephEffect(6).toNumber())*purificationEffect(2)
-    return (Math.sqrt(getExtraCharge())/10)*purificationEffect(2)
+    /*
+        Guard rails: this used to be a plain-number product. With no excess Boosters it reads
+        "0 * alephEffect(6).toNumber() * purificationEffect(2)", and once the Ringularity pushes the
+        Aleph effects past Number.MAX_VALUE, toNumber() is Infinity - so the gain became NaN
+        ("0 * Infinity"). That turned data.overflow.bp into NaN, made every getOverflowEffect()
+        NaN/Infinity (which then fed the OP and AutoBuyer speed chains, so the Ordinal could not
+        recover after a Collapse) and previously even crashed format()/calcOrdPoints().
+        Multiplying in Decimal space keeps "0 * anything" at 0, and the result is clamped to a
+        finite number so the accumulation in mainLoop() can never overflow to Infinity either.
+    */
+    let gain = i === 0
+        ? D(alephEffect(6)).times(Math.sqrt(getExtraBoosters())/10).times(purificationEffect(2))
+        : D(Math.sqrt(getExtraCharge())/10).times(purificationEffect(2))
+    if (isNaN(gain.mag) || isNaN(gain.layer) || isNaN(gain.sign)) return 0
+    let amount = gain.toNumber()
+    return Number.isFinite(amount) ? amount : Number.MAX_VALUE
 }
 
 function getOverflowEffect(i, depth=0){

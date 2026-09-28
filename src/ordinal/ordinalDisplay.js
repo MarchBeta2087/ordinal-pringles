@@ -1,3 +1,17 @@
+/*
+    Every Ordinal display routine recurses once per Ordinal "term" and, for Ordinals beyond
+    1.8e308, roughly once per layer of the number (the repeated logarithms). Ordinals grow far
+    past Number.MAX_VALUE in this game, so an unbounded recursion overflows the JS call stack
+    and kills the main loop with "RangeError: Maximum call stack size exceeded".
+    This is the shared budget for all of those routines - see displayInfiniteBMSOrd for the
+    original local copy of this guard.
+*/
+const MAX_ORD_DISPLAY_DEPTH = 1000
+
+// The Ordinal Length (data.ord.trim) feeds that same budget, so it has to stay bounded too.
+const MIN_ORD_TRIM = 0
+const MAX_ORD_TRIM = 100
+
 let ordinalDisplayTrim = (n=1) => (data.ord.displayType === "BMS" || data.ord.displayType === "Y-Sequence") ? data.ord.trim : n
 
 // The entry point for Ordinal Display
@@ -38,8 +52,9 @@ function ordinalDisplay(type='', ord=data.ord.ordinal, over=data.ord.over, base=
 // Changes the Ordinal's Trim
 function changeTrim(x){
     if (isNaN(Math.floor(x))) return showNotification('Invalid Input!')
-    data.ord.trim = Math.floor(x)
+    data.ord.trim = Math.min(Math.max(Math.floor(x), MIN_ORD_TRIM), MAX_ORD_TRIM)
     DOM(`changeOrdLength`).children[0].innerHTML = `[${data.ord.trim}]`
+    if (data.ord.trim !== Math.floor(x)) showNotification(`The Ordinal Length is capped between ${MIN_ORD_TRIM} and ${MAX_ORD_TRIM}!`)
 }
 
 // Updates the Ordinal's HTML

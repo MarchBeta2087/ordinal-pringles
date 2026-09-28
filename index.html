@@ -107,6 +107,21 @@
             <br>
         </div>
     </div>
+    <div class="endgameContainer" id="endgameContainer">
+        <div id="endgame" class="endgameBox">
+            <h1 class="endgameTitle">THE END</h1>
+            <p class="endgameSubtitle">You have reached the end of Ordinal Pringles</p>
+            <p id="endgameText" class="endgameText"></p>
+            <div id="endgameStats" class="endgameStats"></div>
+            <div class="flexBox" style="flex-direction: row; gap: 0.5rem; margin-top: 1rem">
+                <button class="modalButton endgameButton" onclick="downloadSave()">Download your Save</button>
+                <button class="modalButton endgameButton" style="border-color: #ce0b0b; color: #ce0b0b"
+                        onclick="endgameResetConfirm()">Start from Scratch
+                </button>
+                <button class="modalButton endgameButton" onclick="closeModal('endgame')">Keep Playing</button>
+            </div>
+        </div>
+    </div>
 </div>
 <button id="notification">Hello</button>
 <div id="sidebar0">
@@ -162,16 +177,30 @@
             <div class="flexBox">
                 <button id="mobilefactorShiftButton" onclick="data.sToggles[3]?factorShiftConfirm():factorShift()" style="color: goldenrod; width: 20rem; height: 3rem; background-color: black; border: 2px solid #785c13">Perform a Factor Shift</button>
                 <button id="mobilefactorBoostButton" onclick="data.sToggles[4]&&(data.collapse.times > 0 || data.boost.times < 33)?createConfirmation('Are you sure?', 'Performing a Factor Boost will reset your Ordinal, Ordinal Powers, Factors, Automation, Base, and Dynamic Factor in exchange for some Boosters!', 'No Way!', 'Yes, lets do this.', boost):boost()" style="margin-left: 0.2rem; color: #8080FF; width: 20rem; min-height: 3rem; background-color: black; border: 2px solid #1e47d0; display: none">Perform a Factor Boost</button>
+                <button id="imaginaryShiftButton" onclick="data.sToggles[3]?imaginaryShiftConfirm():imaginaryShift()"
+                        style="margin-left: 0.2rem; color: #ffd263; width: 20rem; min-height: 3rem; background-color: black; border: 2px solid #9b8035; display: none">Perform an Imaginary Shift</button>
             </div>
             <button class="factor" id="factorMax" onclick="buyMaxFactor()">Max All Factors [F]</button>
-            <div class="column flexBox">
-                <button class="factor" id="factor0" onclick="buyFactor(0)">Factor 1</button>
-                <button class="factor" id="factor1" onclick="buyFactor(1)">Factor 1</button>
-                <button class="factor" id="factor2" onclick="buyFactor(2)">Factor 1</button>
-                <button class="factor" id="factor3" onclick="buyFactor(3)">Factor 1</button>
-                <button class="factor" id="factor4" onclick="buyFactor(4)">Factor 1</button>
-                <button class="factor" id="factor5" onclick="buyFactor(5)">Factor 1</button>
-                <button class="factor" id="factor6" onclick="buyFactor(6)">Factor 1</button>
+            <div class="flexBox">
+                <div class="column flexBox">
+                    <button class="factor" id="factor0" onclick="buyFactor(0)">Factor 1</button>
+                    <button class="factor" id="factor1" onclick="buyFactor(1)">Factor 1</button>
+                    <button class="factor" id="factor2" onclick="buyFactor(2)">Factor 1</button>
+                    <button class="factor" id="factor3" onclick="buyFactor(3)">Factor 1</button>
+                    <button class="factor" id="factor4" onclick="buyFactor(4)">Factor 1</button>
+                    <button class="factor" id="factor5" onclick="buyFactor(5)">Factor 1</button>
+                    <button class="factor" id="factor6" onclick="buyFactor(6)">Factor 1</button>
+                </div>
+                <div class="column flexBox" id="iFactorContainer"
+                     style="margin-left: 0.5rem; display: none">
+                    <button class="iFactor" id="iFactor0" onclick="buyFactor(0, true)">Factor 1i</button>
+                    <button class="iFactor" id="iFactor1" onclick="buyFactor(1, true)">Factor 2i</button>
+                    <button class="iFactor" id="iFactor2" onclick="buyFactor(2, true)">Factor 3i</button>
+                    <button class="iFactor" id="iFactor3" onclick="buyFactor(3, true)">Factor 4i</button>
+                    <button class="iFactor" id="iFactor4" onclick="buyFactor(4, true)">Factor 5i</button>
+                    <button class="iFactor" id="iFactor5" onclick="buyFactor(5, true)">Factor 6i</button>
+                    <button class="iFactor" id="iFactor6" onclick="buyFactor(6, true)">Factor 7i</button>
+                </div>
             </div>
         </div>
         <div class="tab flexBox" id="autoSubPage" style="margin-top:0.8rem;">
@@ -468,6 +497,11 @@
                         onclick="singControl(1, 1)">Shrink the Ringularity to Zero
                 </button>
             </div>
+            <div class="row flexBox" id="ringularityEndgameControls" style="gap: 0.5rem; margin-top: 0.2rem; display: none">
+                <button class="singControl" id="singEndgameButton" style="border-color: #d5a60b; color: #d5a60b; width: 20rem"
+                        onclick="showEndgameScreen()">The End
+                </button>
+            </div>
             <div class="column flexBox" id="singFunctionContainer" style="margin-top: 1rem"></div>
             <span class="centeredTexts" style="color: darkgray; margin-top: 2rem"><span
                     style="color: #00ceb6">Blue</span> Functions are <span style="color: #00ceb6">Persistent</span>! This means they are active as long as you have whatever makes them <span
@@ -734,6 +768,10 @@
     <button class="prestigeButton" id="obliterateButton" onclick="obliterateConfirm()"
             style="color: #b06cdc;">
         SODA!!!
+    </button>
+    <button class="prestigeButton" id="theEndButton" onclick="showEndgameScreen()"
+            style="color: #d5a60b; display: none;">
+        The End
     </button>
     <div id="headerWrapper">
         <button class="prestigeButton" id="header" onclick="universalEscape()"

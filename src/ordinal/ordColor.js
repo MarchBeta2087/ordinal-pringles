@@ -6,8 +6,17 @@
 const hexArray = ("0123456789ABCDEF".split(""));
 
 function preConvertHex(n) {
-    if (n === 0) return "";
-    return preConvertHex(Math.floor(n / 16 + 0.001)) + hexArray[n % 16];
+    /*
+        Iterative on purpose: a non-finite input (NaN/Infinity, reachable through HSL) used to
+        recurse forever and surfaced as "RangeError: Maximum call stack size exceeded".
+    */
+    if (!Number.isFinite(n) || n <= 0) return "";
+    let result = "";
+    while (n > 0) {
+        result = hexArray[Math.floor(n) % 16] + result;
+        n = Math.floor(n / 16 + 0.001);
+    }
+    return result;
 }
 
 function convertHex(r, g, b) {

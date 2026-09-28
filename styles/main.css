@@ -558,7 +558,8 @@
     border-radius: 5px;
     border: 2px solid gray;
     transition: right 0.5s ease-in-out;
-    z-index: 1;
+    /* Above #modalLayer (z-index 3), so notifications stay readable while a modal or The End screen is open. */
+    z-index: 4;
     font-family: DosisLight, serif;
 }
 
@@ -580,7 +581,7 @@
 
 #sidebar1{
     width: 20rem;
-    height: 12rem;
+    min-height: 12rem;
 }
 
 #settingsNav{

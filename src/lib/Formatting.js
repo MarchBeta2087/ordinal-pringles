@@ -42,7 +42,13 @@ function sumValues(x) {
 
 function format(decimal, precision = 2) {
     decimal = new Decimal(decimal)
-        //if (Decimal.isNaN(decimal)) return  '[ERROR]: NaN'
+        /*
+            Guard rail: a NaN Decimal (e.g. "(e^NaN)NaN", reachable through a non-finite resource)
+            fails every comparison below, so the "⁻¹" recursion at the bottom used to run forever
+            and killed the game with "RangeError: Maximum call stack size exceeded".
+            The commented-out isNaN check below never worked because Decimal.isNaN does not exist.
+        */
+        if (isNaN(decimal.sign) || isNaN(decimal.layer) || isNaN(decimal.mag) || isNaN(decimal.e)) return "NaN"
         if (decimal.sign < 0) return "-" + format(decimal.neg(), precision)
         if (decimal.mag === Number.POSITIVE_INFINITY) return "Infinity"
         if(decimal.eq(Infinity)) return 'gwa'
@@ -76,6 +82,7 @@ function formatWhole(decimal) {
 function formatTime(s) {
     if (s.gt(Number.MAX_VALUE)) return "Eternity"
     s = s.toNumber()
+    if (isNaN(s)) return "0s"
     if (s < 60) return format(s) + "s"
     else if (s < 3600) return formatWhole(Math.floor(s / 60)) + "m " + format(s % 60) + "s"
     else if (s < 86400) return formatWhole(Math.floor(s / 3600)) + "h " + formatWhole(Math.floor(s / 60) % 60) + "m " + format(s % 60) + "s"

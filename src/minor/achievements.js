@@ -393,6 +393,16 @@ let achievements = [
         description: "Reach a Ringularity Density of ω³2",
         req: () => hasReachedRingularityEndgame()
     },
+    {
+        name: "Imagination",
+        description: "Perform an Imaginary Shift",
+        req: () => data.imaginary.shifts > 0
+    },
+    {
+        name: "A Rift in the Factor Plane",
+        description: "Perform all Seven Imaginary Shifts",
+        req: () => data.imaginary.shifts >= imaginaryShiftData.length
+    },
 ]
 
 function initAchs(){

@@ -1,3 +1,7 @@
+// EUP 305: "Cardinals boost all Perfected Pringles". Cardinals are softcapped by cardinalGain()
+// (see collapse.js), so a squared log10 stays bounded; the exponent is the balance knob.
+const EUP305_EXPONENT = 2
+
 const energyUpgradeData = [
     [
         {
@@ -247,10 +251,10 @@ const energyUpgradeData = [
             isUnlock: false,
         },
         {
-            desc: "??? (Coming Soon!)",
+            desc: "Cardinals boost all <span style='color: #2da000'>Perfected</span>, <span style='color: #ae6610'>Perfected</span>, and <span style='color: #3d40fd'>Perfected</span> Pringles",
             sign: 'x',
-            cost: Infinity,
-            eff: () => D(1),
+            cost: 2,
+            eff: () => Decimal.min(Number.MAX_VALUE, Decimal.log10(Decimal.max(0, data.collapse.cardinals).add(10)).pow(EUP305_EXPONENT)),
             hasExtraReq: false,
             extraReq: true,
             extraReqText: '',
@@ -273,16 +277,16 @@ const energyUpgradeData = [
             isUnlock: true,
         },
         {
-            desc: "??? (Coming Soon!)",
+            desc: "Unlock Imaginary Shifts",
             sign: 'x',
-            cost: Infinity,
+            cost: 2,
             eff: () => D(1),
             hasExtraReq: false,
             extraReq: true,
             extraReqText: '',
             node: 402,
             baseValue: 1,
-            isUnlock: false,
+            isUnlock: true,
         },
     ]
 ]

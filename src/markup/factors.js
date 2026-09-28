@@ -24,6 +24,20 @@ function buyMaxAuto() {
 }
 
 
+/*
+    Imaginary Factors mirror the normal ones (see factorEffect): there is one tier exponent per
+    Imaginary Shift, so at most 7 Imaginary Shifts can ever be performed.
+*/
+const IMAGINARY_SHIFT_TIERS = [1, 1, 1, 1, 1.3, 1.9, 2.2, 2.3]
+const MAX_IMAGINARY_SHIFTS = IMAGINARY_SHIFT_TIERS.length - 1
+// A broken save (NaN or an out-of-range count) must not poison the Factor effects.
+let clampImaginaryShifts = (shifts) => {
+    let i = Math.floor(shifts)
+    return Number.isFinite(i) ? Math.min(Math.max(i, 0), MAX_IMAGINARY_SHIFTS) : 0
+}
+let getImaginaryShiftCount = () => clampImaginaryShifts(data.imaginary.shifts)
+let getImaginaryShiftTier = (shifts = data.imaginary.shifts) => IMAGINARY_SHIFT_TIERS[clampImaginaryShifts(shifts)]
+
 function factorCost(n, imaginary = false){
     if(imaginary) return (D(10).pow(n+1)).pow(D(2).pow(data.imaginary.factors[n]))
     return (D(10).pow(n+1)).pow(D(2).pow(data.factors[n]))
@@ -39,7 +53,10 @@ function factorEffect(n, imaginary = false) {
     if(imaginary && data.imaginary.factors[n] < 1) return 1+add*mult
     if((data.chal.active[1] || data.factors[n] < 1) && !imaginary) return 1+add*mult
 
-    if(imaginary) return ((data.imaginary[n]+(1+add))*mult*getBUPEffect(8))*(Math.max(1+(data.imaginary.shifts-n-1)/10, 1)**[1, 1, 1, 1, 1.3, 1.9, 2.2, 2.3][data.imaginary.shifts])
+    if(imaginary) {
+        let shifts = getImaginaryShiftCount()
+        return ((data.imaginary.factors[n]+(1+add))*mult*getBUPEffect(8))*(Math.max(1+(shifts-n-1)/10, 1)**getImaginaryShiftTier(shifts))
+    }
     return ((data.factors[n]+(1+add))*mult*getBUPEffect(8))*(Math.max(1+(data.markup.shifts-n-1)/10, 1)**[1, 1, 1, 1, 1.3, 1.9, 2.2, 2.3][data.markup.shifts])
 }
 function totalFactorEffect(){
@@ -60,9 +77,9 @@ function buyFactor(n, imaginary = false){
 function buyMaxFactor(){
     if(data.chal.active[1]) return
 
-    for (let i = data.imaginary.shifts-1; i >= 0; i--){
+    for (let i = Math.min(data.imaginary.shifts, MAX_IMAGINARY_SHIFTS)-1; i >= 0; i--){
         if(!hasFactor(i, true)) break
-        while (data.markup.powers.gte(Decimal.pow(10 ** (i + 1), Decimal.pow(2, data.factors[i])))) buyFactor(i, true);
+        while (data.markup.powers.gte(factorCost(i, true))) buyFactor(i, true);
     }
 
     if(data.baseless.baseless){

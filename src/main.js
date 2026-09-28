@@ -12,8 +12,19 @@ function mainLoop() {
 
     if(data.ord.isPsi && data.boost.unlocks[1]) data.incrementy.amt = data.incrementy.amt.plus(incrementyGain().times(uDiff))
     if(data.boost.unlocks[3]) {
-        data.overflow.bp += getOverflowGain(0)*uDiff
-        data.overflow.oc += getOverflowGain(1)*uDiff
+        /*
+            Guard rails: a broken Booster Power/Overcharge used to stay broken forever (a NaN
+            propagates into every Overflow effect and from there into the OP and AutoBuyer speed
+            chains), so it is reset here and non-finite gains are ignored. The accumulation is
+            saturated at Number.MAX_VALUE as well: adding the clamped Number.MAX_VALUE gain used to
+            overflow straight to Infinity (e.g. 4.70e653 Cardinals with a 1000ms tick).
+        */
+        if(!Number.isFinite(data.overflow.bp)) data.overflow.bp = 1
+        if(!Number.isFinite(data.overflow.oc)) data.overflow.oc = 1
+        let bpGain = getOverflowGain(0)*uDiff
+        let ocGain = getOverflowGain(1)*uDiff
+        if(Number.isFinite(bpGain)) data.overflow.bp = Math.min(data.overflow.bp + bpGain, Number.MAX_VALUE)
+        if(Number.isFinite(ocGain)) data.overflow.oc = Math.min(data.overflow.oc + ocGain, Number.MAX_VALUE)
     }
 
     if(hasCUP(7)) data.collapse.cardinals = data.collapse.cardinals.plus((data.collapse.bestCardinalsGained.div(100)).times(getCUPEffect(7)).times(uDiff))
@@ -24,6 +35,9 @@ function mainLoop() {
     if(alephOmegaCap() > 0 && data.omega.alephOmega < alephOmegaCap()) data.omega.alephOmega += aoGain()*uDiff
     if(data.omega.alephOmega > alephOmegaCap()) data.omega.alephOmega = alephOmegaCap()
 
+    // Guard rail: a NaN Negative Charge (see buyDrain) would stay NaN forever, because
+    // Math.min(Number.MAX_VALUE, NaN) is still NaN.
+    if(!Number.isFinite(data.darkness.negativeCharge)) data.darkness.negativeCharge = 0
     data.darkness.negativeCharge = Math.min(Number.MAX_VALUE, data.darkness.negativeCharge+negativeChargeGain()*uDiff)
 
     // Run the tick() function to calculate things that rely on normal diff

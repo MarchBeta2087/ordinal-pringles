@@ -107,9 +107,32 @@ function EN_fghOmegaPlusOne(base)
     return base;
 }
 
-function hardy(ord, base, over=0)
+const MAX_HARDY_DEPTH = 100
+
+function hardy(ord, base, over=0, depth=0)
 {
-    ord = EN(ord.toString());
+    let ordString = ord.toString();
+
+    /*
+        Guard rails. This function recurses on a shrinking Ordinal, and that recursion used to be
+        unbounded: ExpantaNum cannot parse BreakEternity's layered notation ("(e^6)10000000000",
+        which BreakEternity uses once a number has more than 5 layers), so EN(...) returned NaN,
+        every comparison below was false, "restOrd" never shrank, and the game died with
+        "RangeError: Maximum call stack size exceeded".
+        Returning Infinity makes getHardy() fall back to bigHardy(), which handles layered
+        Ordinals correctly.
+    */
+    if (depth >= MAX_HARDY_DEPTH || !Number.isFinite(base) || base < 1 || ordString.includes("(e^"))
+    {
+        return EN(Infinity);
+    }
+
+    ord = EN(ordString);
+
+    if (ord.isNaN())
+    {
+        return EN(Infinity);
+    }
 
     if (ord.gte(base ** (base + 2)))
     {
@@ -118,12 +141,12 @@ function hardy(ord, base, over=0)
 
     if (ord.gte(base ** (base + 1)))
     {
-        return EN_fghOmegaPlusOne(hardy(ord.sub(base ** (base + 1)), base, over));
+        return EN_fghOmegaPlusOne(hardy(ord.sub(base ** (base + 1)), base, over, depth + 1));
     }
 
     if (ord.gte(base ** base))
     {
-        return EN_fghOmega(hardy(ord.sub(base ** base), base, over));
+        return EN_fghOmega(hardy(ord.sub(base ** base), base, over, depth + 1));
     }
 
     if (ord.lt(base))
@@ -134,7 +157,13 @@ function hardy(ord, base, over=0)
     let highestPower = ord.logBase(base).floor();
     let restOrd = ord.sub(EN.pow(base, highestPower));
 
-    return EN_fgh(highestPower, hardy(restOrd, base, over));
+    // Guard rail: never recurse on a remainder that made no progress.
+    if (restOrd.eq(ord))
+    {
+        return EN(Infinity);
+    }
+
+    return EN_fgh(highestPower, hardy(restOrd, base, over, depth + 1));
 }
 
 function rep(mult, restOrd, base, over=0)
@@ -648,7 +677,13 @@ function getHardy(ord = data.ord.ordinal, over = data.ord.over, base = data.ord.
     let hardyValue = "Infinity";
     hardyValue = format(calculateHardy(ord, over, base));
     if (hardyValue === "Infinity") {
-        if (!data.baseless.baseless && useExpantaNum()) hardyValue = EN_format(hardy(ord, base, over));
+        /*
+            ExpantaNum can only work with Ordinals it can parse, and BreakEternity's layered
+            notation ("(e^6)10000000000", used above 5 layers) is not among them - EN() turns it
+            into NaN and hardy() would run away. Those Ordinals go straight to bigHardy().
+        */
+        let expantaFriendly = !D(ord).toString().includes("(e^")
+        if (!data.baseless.baseless && useExpantaNum() && expantaFriendly) hardyValue = EN_format(hardy(ord, base, over));
         if (hardyValue === "Infinity") hardyValue = bigHardy(ord, base, over);
     }
     return hardyValue;

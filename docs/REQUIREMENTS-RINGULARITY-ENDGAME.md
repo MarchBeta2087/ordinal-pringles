@@ -1,535 +1,662 @@
-# Ringularity 机制与 Endgame 需求分析文档
+# Ringularity & Endgame — Requirements Analysis
 
-> **状态**：草案（Draft）— 供评审用，尚未进入开发阶段
-> **基线版本**：Ordinal PRINGLES `v0.4.3p3` "The Pringle Update"（`VERSION_DATE = February 16th, 2025`）
-> **文档日期**：2026-09-28
-> **许可证**：本项目整体遵循 **CC BY-NC-SA 4.0**（见仓库根目录 `license`）
-> **约束**：本文档只描述"要做什么/为什么/如何验收"，不含最终实现代码；开发开始前不修改 `/src`。
+🌐 **English** | [中文](REQUIREMENTS-RINGULARITY-ENDGAME.zh-CN.md)
+
+> **Status**: **implemented** (v0.5.0 "The Ringularity Update", 2026-09-28) - see Appendix D and
+> `CHANGELOG.md` for the details and the per-item verification; the §0-§12 "draft" chapters are kept
+> for traceability.
+> **Baseline**: Ordinal PRINGLES `v0.4.3p3` "The Pringle Update" (`VERSION_DATE = February 16th, 2025`)
+> -> this release: `v0.5.0`
+> **Document date**: 2026-09-28
+> **License**: the project as a whole is licensed under **CC BY-NC-SA 4.0** (see `license` in the repository root)
+> **Scope of this document**: it describes *what* to build, *why*, and *how to accept it*; the actual
+> implementation is defined by the code and Appendix D.
 
 ---
 
-## 0. 文档信息与修订记录
+## 0. Document information and revision history
 
-| 版本 | 日期 | 作者 | 说明 |
+| Version | Date | Author | Notes |
 | --- | --- | --- | --- |
-| 0.1 | 2026-09-28 | — | 首版：现状审计 + FR-1~FR-6 + Endgame + 许可证合规 |
+| 0.1 | 2026-09-28 | — | First version: baseline audit + FR-1…FR-6 + Endgame + license compliance |
 
-**评审结论栏**：待填写（接受 / 驳回 / 修改后接受）。
-
----
-
-## 1. 背景与目标
-
-`ordinal-pringles` 是 *Ordinal Markup*（原作者 Patcail，MIT）的精神续作与重制版（本仓库原作者 FlamemasterNXF），以 Ordinal（序数）增长为核心，逐层叠加 Markup → Boosters → Collapse → Obliteration → Pringle/Purity/Instability 等系统。
-
-当前问题（用户反馈 + 代码审计确认）：
-
-1. **Ringularity 是半成品**：UI、数据结构、成就与解锁文案都已存在，但机制从未实现，且被代码硬隐藏。
-2. **能量树存在三个占位升级（106 / 305 / 402）**：代价为 `Infinity`，玩家永远无法购买，属于明显的"未完成"标记。
-3. **没有明确的 Endgame**：不存在"通关/终点"判定或终点反馈，玩家在 1750 ℶ<sub>ω</sub> 之后缺乏目标。
-4. 全仓库仍残留多处 `(Coming Soon)` / `???` 占位文案。
-
-**本次目标**：
-
-- G1：补完 **Ringularity** 机制（含 Singularity 与 Ringularity 的联动闭环）。
-- G2：补完 **Energy Upgrade 106 / 305 / 402** 的内容与代价。
-- G3：定义并实现一个**明确的 Endgame**（终点 = **Ringularity 密度 2000**）。
-- G4：清除所有占位符，并完成配套的成就/教程/存档/版本升级。
-- G5：全过程满足 **CC BY-NC-SA 4.0** 的署名（Attribution）、非商业（NonCommercial）、相同方式共享（ShareAlike）要求。
+**Review verdict**: (accept / reject / accept with changes) - left blank.
 
 ---
 
-## 2. 范围界定（Scope）
+## 1. Background and goals
 
-**In Scope**
+`ordinal-pringles` is a spiritual successor to and remake of *Ordinal Markup* (original by Patcail,
+MIT; remake in this repository by FlamemasterNXF). It is built around growing Ordinals, layering
+Markup -> Boosters -> Collapse -> Obliteration -> Pringle/Purity/Instability on top of each other.
 
-- Ringularity 的数值机制、数据契约、UI、效果计算链接入。
-- EUP 106 / 305 / 402 的内容、代价、`isUnlock` 语义与能量树显示修复。
-- Endgame 判定、进度展示、终点成就与通关反馈。
-- 存档兼容（`getDefaultPlayer` / `fixOldSaves`）、版本号升级（`VERSION` 等）。
-- 许可证合规配套改动（README 署名等，**不改动 `license` 正文**）。
+Problems found (player feedback + code audit):
 
-**Out of Scope**
+1. **The Ringularity is half-finished**: its UI, data structures, achievements and unlock texts
+   already exist, but the mechanic was never implemented and is hard-hidden in the code.
+2. **The Energy Tree still has three placeholder upgrades (106 / 305 / 402)**: they cost `Infinity`
+   and can never be bought - an obvious "unfinished" marker.
+3. **There is no explicit Endgame**: no completion check and no completion feedback, so players lack a
+   goal after 1750 ℶ<sub>ω</sub>.
+4. `(Coming Soon)` / `???` placeholders are still scattered around the repository.
 
-- 不采用未合并分支 `origin/singularity-2` / `origin/v05-destabilization` 的"删除 Singularity"式 v0.5 重写方向（见 §4.4）。
-- 不引入构建系统、打包器、测试框架（仓库现状为纯静态站点）。
-- 不重构无关系统（如 Ordinal 显示、BMS/Y-Sequence 等）。
-- 不作为商业用途、不添加广告/付费内容（许可证要求）。
+**Goals for this work:**
+
+- G1: finish the **Ringularity** mechanic (including the Singularity <-> Ringularity feedback loop).
+- G2: fill in **Energy Upgrade 106 / 305 / 402** (content and costs).
+- G3: define and implement an **explicit Endgame** (the goal = **Ringularity Density 2000**).
+- G4: remove every placeholder and finish the accompanying achievements/tutorials/saves/version bump.
+- G5: satisfy the **CC BY-NC-SA 4.0** Attribution, NonCommercial and ShareAlike requirements throughout.
 
 ---
 
-## 3. 术语表
+## 2. Scope
 
-| 术语 | 含义 | 代码位置 |
+**In scope**
+
+- The Ringularity's numeric rules, data contract, UI and hook-up to the effect calculation chains.
+- The content, costs and `isUnlock` semantics of EUP 106 / 305 / 402, plus the Energy Tree display fix.
+- The Endgame check, progress display, completion achievement and completion feedback.
+- Save compatibility (`getDefaultPlayer` / `fixOldSaves`) and the version bump (`VERSION`, ...).
+- The license-compliance deliverables (README attribution and so on, **without modifying the `license` text**).
+
+**Out of scope**
+
+- The "remove the Singularity" v0.5 rewrite from the unmerged `origin/singularity-2` /
+  `origin/v05-destabilization` branches (see §4.4).
+- Introducing a build system, bundler or test framework (the repository is a plain static site).
+- Refactoring unrelated systems (Ordinal display, BMS/Y-Sequence, ...).
+- Any commercial use, ads or paid content (license requirement).
+
+---
+
+## 3. Glossary
+
+| Term | Meaning | Code location |
 | --- | --- | --- |
-| Singularity / Ringularity | 两座"奇点"；密度以序数显示（`H_x`），属高阶声望层 | `src/collapse/singularity.js:1` |
-| Total Density | 两座密度之和，用于 `singFunctions` 阈值判定 | `src/collapse/singularity.js:172` |
-| Density（密度） | 奇点的等级，0–500 / 0–2000，按 10 进制转序数显示 | `src/ordinal/ordinal.js:2` |
-| Charge | 用于提升奇点密度的资源，源自 Incrementy 总量 | `src/boosters/incrementy.js:167` |
-| singFunction | 按 Total Density 解锁的"奇点函数"（解锁功能或加成） | `src/collapse/singularity.js:155` |
-| singEffect | 奇点密度带来的持续效果（每座 3 个） | `src/collapse/singularity.js:81` |
-| EUP / Energy Upgrade | 能量树升级，用 Fractal Energy 购买 | `src/obliterate/energyUpgrades.js` |
-| Fractal Energy | Obliteration 的高阶货币 | `src/obliterate/obliterate.js:5` |
-| Ringularity Cap Bonus | Ringularity 里程碑为 Singularity 提升的密度上限 | 本文档 FR-1 新增 |
-| Endgame | 终点状态：Ringularity 密度达到 2000（H<sub>ω<sup>3</sup>2</sub>） | 本文档 FR-5 |
+| Singularity / Ringularity | The two "singularities"; their Density is displayed as an ordinal (`H_x`) and they are high-tier prestige layers | `src/collapse/singularity.js:1` |
+| Total Density | The sum of both Densities, used for the `singFunctions` thresholds | `src/collapse/singularity.js:172` |
+| Density | The level of a Singularity, 0-500 / 0-2000, shown in base 10 as an ordinal | `src/ordinal/ordinal.js:2` |
+| Charge | The resource that raises Density, derived from the total Incrementy | `src/boosters/incrementy.js:167` |
+| singFunction | A "Singularity Function" unlocked by Total Density (an unlock or a bonus) | `src/collapse/singularity.js:155` |
+| singEffect | A passive effect granted by Density (three per Singularity) | `src/collapse/singularity.js:81` |
+| EUP / Energy Upgrade | An Energy Tree upgrade bought with Fractal Energy | `src/obliterate/energyUpgrades.js` |
+| Fractal Energy | The high-tier currency of Obliteration | `src/obliterate/obliterate.js:5` |
+| Ringularity Cap Bonus | The Density cap that Ringularity Milestones grant to the Singularity | added by FR-1 in this document |
+## 4. Baseline audit
 
----
+### 4.1 Version and engineering
 
-## 4. 现状审计（Baseline Audit）
-
-### 4.1 版本与工程
-
-| 项 | 值 | 位置 |
+| Item | Value | Location |
 | --- | --- | --- |
-| 版本 | `0.4.3p3` / "The Pringle Update" | `src/data/saving.js:2-5` |
-| 版本日期 | `February 16th, 2025` | `src/data/saving.js:4` |
-| 最新提交 | `c9df18d`（2025-04-07，Merge PR #58） | `git log -1` |
-| 许可证 | CC BY-NC-SA 4.0 | `license` |
-| 加载方式 | `index.html` 以 `defer` 顺序加载全部脚本 | `index.html:13-71` |
-| 构建/测试 | 无 `package.json`、无测试框架（纯静态） | 仓库根目录 |
+| Version | `0.4.3p3` / "The Pringle Update" | `src/data/saving.js:2-5` |
+| Version date | `February 16th, 2025` | `src/data/saving.js:4` |
+| Latest commit | `c9df18d` (2025-04-07, Merge PR #58) | `git log -1` |
+| License | CC BY-NC-SA 4.0 | `license` |
+| Loading | `index.html` loads every script in `defer` order | `index.html:13-71` |
+| Build / tests | no `package.json`, no test framework (plain static site) | repository root |
 
-### 4.2 Ringularity：脚手架已存在，机制未实现且被隐藏
+### 4.2 Ringularity: the scaffolding exists, the mechanic does not (and is hidden)
 
-| 事实 | 位置 |
+| Fact | Location |
 | --- | --- |
-| 双奇点命名数组已定义 | `src/collapse/singularity.js:1` |
-| 密度上限写死 `500`，且两座共用同一 Charge 池 | `src/collapse/singularity.js:90` |
-| `singEffects` 共 6 槽；`[0..2]` 为 Singularity，`[3..5]` 是 **Ringularity 占位**（`"Coming Soon!"` / `"???"` / `"???"`） | `src/collapse/singularity.js:81-89` |
-| 解锁文案：`Unlock a Ringularity (Coming Soon!), but cap the Singularity's Density at H_ω²5`（`requiredLevel: 500`） | `src/collapse/singularity.js:165` |
-| Ringularity 的 UI 已完整存在（`#singularity1` / `sing1Level` / `sing1Level2` / `sing1Effect0..2` / `singSlider1`） | `index.html:436-449` |
-| 被硬隐藏（显示恒为 `none`） | `src/helpers/tabs.js:79` |
-| 已知缺陷标记：`changeSingLevel` 仍读取 `data.sing.level[0]` | `src/collapse/singularity.js:94` |
-| 同类缺陷：Charge 账目只扣除第 0 座密度 | `src/boosters/incrementy.js:167`、`src/collapse/collapse.js:312` |
-| 成就已引用 Ringularity | `src/minor/achievements.js:380-383`（"The Blugularity"，`hasSingFunction(9)`） |
-| 数据结构已按 2 座设计（长度 2 数组） | `src/data/player.js:30` |
+| The two-Singularity name array is already defined | `src/collapse/singularity.js:1` |
+| The Density cap is hardcoded to `500`, and both Singularities share the same Charge pool | `src/collapse/singularity.js:90` |
+| `singEffects` has 6 slots; `[0..2]` belong to the Singularity, `[3..5]` are **Ringularity placeholders** (`"Coming Soon!"` / `"???"` / `"???"`) | `src/collapse/singularity.js:81-89` |
+| Unlock text: `Unlock a Ringularity (Coming Soon!), but cap the Singularity's Density at H_ω²5` (`requiredLevel: 500`) | `src/collapse/singularity.js:165` |
+| The Ringularity UI already exists in full (`#singularity1` / `sing1Level` / `sing1Level2` / `sing1Effect0..2` / `singSlider1`) | `index.html:436-449` |
+| It is hard-hidden (its display is always `none`) | `src/helpers/tabs.js:79` |
+| Known defect marker: `changeSingLevel` still reads `data.sing.level[0]` | `src/collapse/singularity.js:94` |
+| Same defect: the Charge ledger only subtracts the first Singularity's Density | `src/boosters/incrementy.js:167`, `src/collapse/collapse.js:312` |
+| An achievement already references the Ringularity | `src/minor/achievements.js:380-383` ("The Blugularity", `hasSingFunction(9)`) |
+| The data structure is already designed for 2 Singularities (length-2 arrays) | `src/data/player.js:30` |
 
-**结论**：Ringularity 缺的是"机制与效果定义"，不是"基础设施"。
+**Conclusion**: the Ringularity is missing "mechanics and effect definitions", not "infrastructure".
 
-### 4.3 EUP 106 / 305 / 402：节点已存在，内容为占位
+### 4.3 EUP 106 / 305 / 402: the nodes exist, their content is a placeholder
 
-| 节点 | 数据位置 | 当前内容 | 备注 |
+| Node | Data location | Current content | Notes |
 | --- | --- | --- | --- |
-| 106 | `energyUpgradeData[1][5]` | `desc: '??? (Coming Soon)'`，`cost: Infinity`，`eff: D(1)` | 源码注释 `// Unlock a new Singularity Effect`（`src/obliterate/energyUpgrades.js:77-88`） |
-| 305 | `energyUpgradeData[3][4]` | `desc: "??? (Coming Soon!)"`，`cost: Infinity` | 3xx 分支 = Pringle（`...:249-260`） |
-| 402 | `energyUpgradeData[4][1]` | `desc: "??? (Coming Soon!)"`，`cost: Infinity` | 4xx 分支 = Instability/Realm（`...:275-286`） |
+| 106 | `energyUpgradeData[1][5]` | `desc: '??? (Coming Soon)'`, `cost: Infinity`, `eff: D(1)` | source comment `// Unlock a new Singularity Effect` (`src/obliterate/energyUpgrades.js:77-88`) |
+| 305 | `energyUpgradeData[3][4]` | `desc: "??? (Coming Soon!)"`, `cost: Infinity` | 3xx branch = Pringle (`...:249-260`) |
+| 402 | `energyUpgradeData[4][1]` | `desc: "??? (Coming Soon!)"`, `cost: Infinity` | 4xx branch = Instability/Realm (`...:275-286`) |
 
-- 能量树节点与连线已就位：`src/obliterate/energyTree.js:9`（106）、`:25`（305）、`:28`（402）、`:38`（105→106）、`:56`（304→305）、`:60`（401→402）。
-- 购买前置逻辑通用：`canPurchaseTreeUpgrade()` 用 `id-1` 判定，无需为三处新写逻辑（`src/obliterate/energyTree.js:130-135`）。
-- **附带缺陷**：`updateEnergyTreeText()` 会把 `Infinity` 原样显示为 "Can be Activated for Infinity Fractal Energy"（`src/obliterate/energyTree.js:155`），本次必须一并修复。
+- The Energy Tree nodes and edges are already in place: `src/obliterate/energyTree.js:9` (106), `:25`
+  (305), `:28` (402), `:38` (105 -> 106), `:56` (304 -> 305), `:60` (401 -> 402).
+- The purchase prerequisite logic is generic: `canPurchaseTreeUpgrade()` uses `id-1`, so none of the
+  three nodes needs new logic (`src/obliterate/energyTree.js:130-135`).
+- **Side defect**: `updateEnergyTreeText()` renders `Infinity` verbatim as "Can be Activated for
+  Infinity Fractal Energy" (`src/obliterate/energyTree.js:155`) - this has to be fixed as well.
 
-### 4.4 历史设计索引（本仓库 git 历史，非外部素材）
+### 4.4 Historical design index (this repository's own git history, not external material)
 
-> 以下内容均出自**本仓库自身**的提交，可在许可证合规前提下复用（见 §8）。
+> Everything below comes from **this repository's own** commits and may be reused under the license
+> (see §8).
 
-| 提交 | 所在分支 | 与本次相关的设计 |
+| Commit | Branch | Design relevant to this work |
 | --- | --- | --- |
-| `21cbf58 feat: Ringularity` | 已在 `main` 历史中 | Ringularity 的 UI + 数据结构 + 按 Total Density 解锁（当时门槛为 `300` = H_ω²3） |
-| `3cb4f6c chore: Hide Ringularity` | `main` 历史 | 文案追加 "(Coming Soon!)"，注释掉 `#singularity1` 的显示 |
-| `990879a chore: WIP Mechanic, decided to save for later` | `main` 历史 | **Imaginary Shifts**（第四套 Factor Shift）+ EUP402 = "Unlock Imaginary Shifts"（未完成） |
-| `42ff10e feat: New 3xx Branch` | 分支历史 | 3xx 分支改版；其中 **305** 原为 `"Cardinals boost all Perfected Pringles"` |
-| `d22c73d feat: ... impl EUP106` | `origin/singularity-2`（未合并） | EUP106 = "The Stable Hypercharge Effect applies to Cardinal Gain"（依赖 v0.5 系统，**不适用**） |
-| `4f20fb3 feat: EUP305` | `origin/singularity-2` | EUP305 = "Factor Boosts no longer reset ANYTHING"（**不适用**） |
-| `49b8e93 feat: Add EUP402` | `origin/v05-destabilization` | EUP402 = "Permanently convert the Forgotten Realm to the Destabilized Realm"（备选） |
-| `8dc106f feat: Remove Singularity!` | `origin/singularity-2` | v0.5 重写整体删除了 Singularity（**本方案不采用**） |
+| `21cbf58 feat: Ringularity` | already in `main` history | Ringularity UI + data structures + unlock by Total Density (threshold `300` = H_ω²3 at the time) |
+| `3cb4f6c chore: Hide Ringularity` | `main` history | appended "(Coming Soon!)" to the text and commented out the `#singularity1` display |
+| `990879a chore: WIP Mechanic, decided to save for later` | `main` history | **Imaginary Shifts** (a fourth Factor Shift set) + EUP402 = "Unlock Imaginary Shifts" (unfinished) |
+| `42ff10e feat: New 3xx Branch` | branch history | 3xx branch rework; **305** used to be `"Cardinals boost all Perfected Pringles"` |
+| `d22c73d feat: ... impl EUP106` | `origin/singularity-2` (unmerged) | EUP106 = "The Stable Hypercharge Effect applies to Cardinal Gain" (depends on the v0.5 systems, **not applicable**) |
+| `4f20fb3 feat: EUP305` | `origin/singularity-2` | EUP305 = "Factor Boosts no longer reset ANYTHING" (**not applicable**) |
+| `49b8e93 feat: Add EUP402` | `origin/v05-destabilization` | EUP402 = "Permanently convert the Forgotten Realm to the Destabilized Realm" (an alternative) |
+| `8dc106f feat: Remove Singularity!` | `origin/singularity-2` | the v0.5 rewrite deletes the Singularity entirely (**not adopted here**) |
 
-**关键结论**：Ringularity 的"效果"与"资源模型"在历史中**从未被设计过**（`singEffects[3..5]` 始终是占位符）。因此本文档的核心价值即在于定义这套设计。
+**Key conclusion**: the Ringularity's "effects" and "resource model" were **never** designed in the
+history (`singEffects[3..5]` were always placeholders). Defining that design is therefore the core
+value of this document.
 
-### 4.5 Imaginary Shifts（EUP402 的落点）现状
+### 4.5 Imaginary Shifts (where EUP402 lands): current state
 
-- 存储字段已存在：`imaginary: { shifts: 0, factors: Array(7).fill(0) }`（`src/data/player.js:35`）。
-- 因子系统已支持 `imaginary` 参数：`factorCost(n, imaginary)` / `hasFactor(n, imaginary)` / `factorEffect(n, imaginary)` / `buyFactor(n, imaginary)`（`src/markup/factors.js:27-59`），且 `buyMaxFactor()` 已包含 imaginary 分支（`...:63-66`）。
-- **未完成部分**：`hasFactor(n, true)` 依赖 `data.imaginary.shifts`，但无处递增；`imaginaryShiftData` 为空数组，`getImaginaryShiftReq` 未定义，`imaginaryShift()` 为空壳且整段被注释（`src/markup/markup.js:153-163`）。
-- UI 侧无 `imaginaryShiftButton` / `iFactor*` 元素（历史上曾计划加入 `index.html` 与 `switchSubtab`）。
+- The storage field already exists: `imaginary: { shifts: 0, factors: Array(7).fill(0) }` (`src/data/player.js:35`).
+- The Factor system already supports an `imaginary` argument: `factorCost(n, imaginary)` /
+  `hasFactor(n, imaginary)` / `factorEffect(n, imaginary)` / `buyFactor(n, imaginary)`
+  (`src/markup/factors.js:27-59`), and `buyMaxFactor()` already has an imaginary branch (`...:63-66`).
+- **What is missing**: `hasFactor(n, true)` depends on `data.imaginary.shifts`, but nothing ever
+  increments it; `imaginaryShiftData` is an empty array, `getImaginaryShiftReq` is undefined, and
+  `imaginaryShift()` is an empty shell inside a commented-out block (`src/markup/markup.js:153-163`).
+- On the UI side there are no `imaginaryShiftButton` / `iFactor*` elements (adding them to
+  `index.html` and `switchSubtab` was planned historically).
 
-**结论**：EUP402 若选 "Unlock Imaginary Shifts"，属于"补完已有半成品"，改动集中且风险可控。
+## 5. Functional requirements
 
----
+### FR-1 The Ringularity mechanic
 
-## 5. 功能需求（Functional Requirements）
+**FR-1.0 Confirmed design constraints (from the requester)**
 
-### FR-1 Ringularity 机制
+1. The Ringularity "upgrades" the **Singularity** in return: by **raising the Singularity's Density
+   cap**, and by **strengthening the Singularity's three effects** at its Milestones.
+2. The Endgame goal = **Ringularity Density reaches 2000**.
 
-**FR-1.0 已确认的设计约束（来自需求方）**
+**FR-1.1 Numeric rules**
 
-1. Ringularity 反过来"升级"**Singularity**：通过**提高 Singularity 的密度上限**、并在里程碑处**强化 Singularity 的 3 个效果**。
-2. Endgame 终点 = **Ringularity 密度达到 2000**。
-
-**FR-1.1 数值规则**
-
-| 规则 | 定义 |
+| Rule | Definition |
 | --- | --- |
-| Singularity 基准上限 | 500（H<sub>0</sub> … H<sub>ω<sup>2</sup>5</sub>），保持现状 |
-| Ringularity 上限 | **2000**（H<sub>0</sub> … **H<sub>ω<sup>3</sup>2</sub>**；`makeGenericOrd` 已验证可渲染，见 `src/ordinal/ordinal.js:2-16`） |
-| 解锁条件 | `hasSingFunction(9)`，即 Total Density ≥ 500；解锁后 `#singularity1` 才显示 |
-| Singularity 实际上限 | `singCap(0) = 500 + ringularityCapBonus()`，`ringularityCapBonus()` 由 Ringularity 里程碑累加 |
-| Ringularity 实际上限 | `singCap(1) = 2000` |
-| Total Density | `getTotalSingDensity() = level[0] + level[1]`，理论上限 ≈ `500 + bonus + 2000` |
+| Singularity base cap | 500 (H<sub>0</sub> … H<sub>ω<sup>2</sup>5</sub>), unchanged |
+| Ringularity cap | **2000** (H<sub>0</sub> … **H<sub>ω<sup>3</sup>2</sub>**; `makeGenericOrd` was verified to render it, see `src/ordinal/ordinal.js:2-16`) |
+| Unlock condition | `hasSingFunction(9)`, i.e. Total Density >= 500; only then is `#singularity1` shown |
+| Effective Singularity cap | `singCap(0) = 500 + ringularityCapBonus()`, where `ringularityCapBonus()` accumulates the Ringularity Milestones |
+| Effective Ringularity cap | `singCap(1) = 2000` |
+| Total Density | `getTotalSingDensity() = level[0] + level[1]`, theoretical maximum ≈ `500 + bonus + 2000` |
 
-**FR-1.2 Ringularity 里程碑（建议值，属可调平衡参数）**
+**FR-1.2 Ringularity Milestones (suggested values; these are tunable balance parameters)**
 
-| Ringularity 密度 | 效果 |
+| Ringularity Density | Effect |
 | --- | --- |
-| 100 | Singularity 上限 +50；强化 Singularity 效果 1（`singEffects[0]`） |
-| 300 | Singularity 上限 +100；强化 Singularity 效果 2（`singEffects[1]`） |
-| 600 | Singularity 上限 +200；强化 Singularity 效果 3（`singEffects[2]`） |
-| 1000 | Singularity 上限 +400；三项 Singularity 效果整体再强化 |
-| 1500 | Singularity 上限 +800 |
-| **2000** | **Endgame 达成**（见 FR-5） |
+| 100 | Singularity cap +50; strengthens Singularity effect 1 (`singEffects[0]`) |
+| 300 | Singularity cap +100; strengthens Singularity effect 2 (`singEffects[1]`) |
+| 600 | Singularity cap +200; strengthens Singularity effect 3 (`singEffects[2]`) |
+| 1000 | Singularity cap +400; strengthens all three Singularity effects again |
+| 1500 | Singularity cap +800 |
+| **2000** | **Endgame reached** (see FR-5) |
 
-> 强化方式建议：为每个 `singEffects[i]` 增加"Ringularity 强化倍率"，即在原有公式上乘/加一个由 `getRingularityMilestoneCount(i)` 决定的项（系数待平衡）。**不得改变 `singEffects[0..2]` 在现有代码中的索引与语义**（`singEffects[0]` 被 `collapse.js:183` 依赖、`singEffects[1]` 被 `challenges.js:120` 依赖、`singEffects[2]` 被 `tick.js:14` 依赖）。
+> Suggested strengthening method: give each `singEffects[i]` a "Ringularity multiplier", i.e. multiply
+> or add a term driven by `getRingularityMilestoneCount(i)` on top of the existing formula (the
+> coefficient still needs balancing). **The index and meaning of `singEffects[0..2]` in the existing
+> code must not change** (`singEffects[0]` is used by `collapse.js:183`, `singEffects[1]` by
+> `challenges.js:120` and `singEffects[2]` by `tick.js:14`).
 
-**FR-1.3 Ringularity 自身的 3 个效果（`singEffects[3..5]`）**
+**FR-1.3 The Ringularity's own three effects (`singEffects[3..5]`)**
 
-当前占位：`{desc: () => "Coming Soon!", effect: () => 1}` / `{desc: () => "???", effect: () => 1}` / `{desc: () => "???", effect: () => 1}`（`src/collapse/singularity.js:86-88`）。
+Current placeholders: `{desc: () => "Coming Soon!", effect: () => 1}` /
+`{desc: () => "???", effect: () => 1}` / `{desc: () => "???", effect: () => 1}`
+(`src/collapse/singularity.js:86-88`).
 
-需求：
-- 必须补全为**功能性的 `desc()` + `effect()`**，并**真正接入计算链**（不允许"有描述但无人引用"）。
-- 效果序号与现有 `(n*3)+i` 索引规则一致：Ringularity 槽位固定为 3/4/5（`src/collapse/singularity.js:32-35`）。
-- 建议（待评审确认）：槽位 3 = 加速成长回路的乘区（如 Cardinal/Aleph 类）；槽位 4 = 强化能源线（如 Fractal Energy / 能量升级效果）；槽位 5 = Endgame 相关总倍率。具体文本与公式在"平衡阶段"确定。
+Requirements:
 
-**FR-1.4 资源与账目（推荐方案）**
+- They must be completed into **functional `desc()` + `effect()` pairs** that are **actually wired
+  into a calculation chain** (a description nobody reads does not count).
+- The effect numbering follows the existing `(n*3)+i` index rule: the Ringularity slots are fixed at
+  3/4/5 (`src/collapse/singularity.js:32-35`).
+- Suggestion (subject to review): slot 3 = a multiplier for the growth loop (Cardinal/Aleph flavoured);
+  slot 4 = a boost to the energy line (Fractal Energy / Energy Upgrade effects); slot 5 = an
+  Endgame-related global multiplier. The final text and formulas are decided during balancing.
 
-- **推荐**：Ringularity 沿用 `incrementy.charge` 单一资源池（脚手架即按此设计：`maxSingLevel` 使用 `incrementy.charge`，`singCostText` 显示 Charge）。
-- **必须修复的硬编码**（否则第二座无法正确参与账目）：
-  - `src/collapse/singularity.js:90` `maxSingLevel(i)` 需按座返回上限（0→`singCap(0)`，1→`2000`）。
-  - `src/collapse/singularity.js:130` / `:147` 中 `500`（`singControl` 的"顶满"判定）需替换为 `singCap(n)`。
-  - `src/collapse/singularity.js:94` `changeSingLevel` 的 `data.sing.level[0]` 需改为 `data.sing.level[i]`（落实该行 `//TODO: Allow for multiple Singularities here.`）。
-  - `src/boosters/incrementy.js:167` 与 `src/collapse/collapse.js:312`：`totalCharge - level[0]` → `totalCharge - level[0] - level[1]`。
-- **备选**：Ringularity 使用独立资源（不推荐，需新增资源产出/显示/存档字段，收益有限）。
+**FR-1.4 Resource and ledger (recommended approach)**
 
-**FR-1.5 UI / 文案需求**
+- **Recommended**: the Ringularity reuses the single `incrementy.charge` pool (the scaffolding was
+  designed that way: `maxSingLevel` uses `incrementy.charge` and `singCostText` displays Charge).
+- **Hardcodes that must be fixed** (otherwise the second Singularity cannot take part in the ledger):
+  - `src/collapse/singularity.js:90` `maxSingLevel(i)` must return the cap per Singularity
+    (0 -> `singCap(0)`, 1 -> `2000`).
+  - The `500` literals in `src/collapse/singularity.js:130` / `:147` (`singControl`'s "fill up" check)
+    must become `singCap(n)`.
+  - `src/collapse/singularity.js:94` `changeSingLevel`'s `data.sing.level[0]` must become
+    `data.sing.level[i]` (fulfilling that line's `//TODO: Allow for multiple Singularities here.`).
+  - `src/boosters/incrementy.js:167` and `src/collapse/collapse.js:312`: `totalCharge - level[0]` ->
+    `totalCharge - level[0] - level[1]`.
+- **Alternative**: a separate resource for the Ringularity (not recommended: it needs new production,
+  display and save fields for little benefit).
 
-- 解除隐藏：`src/helpers/tabs.js:79` 恢复为 `hasSingFunction(9) ? 'flex' : 'none'`。
-- `src/collapse/singularity.js:165` 文案去掉 "(Coming Soon!)"。
-- `index.html:444` 的 `singSlider1` 标签由占位文本 `Important Text!!!!` 改为正式说明；`singSlider1.max` 由 `loadSingularityHTML`/`changeSingLevel` 动态设为 2000。
-- `sing1Effect0..2` 与 `sing0Effect*` 颜色需区分（当前 0 号暖色、1 号蓝色系）。
-- Ringularity 的 3 个控制按钮：现有 `singControl(i, n)` 已支持 `n` 参数，但 `index.html:451-457` 只传了 0；需为 Ringularity 增加一组按钮（或在同一组中通过当前选中座切换）。
+**FR-1.5 UI / text requirements**
 
-**FR-1.6 边界与异常**
+- Un-hide it: restore `src/helpers/tabs.js:79` to `hasSingFunction(9) ? 'flex' : 'none'`.
+- Drop "(Coming Soon!)" from the text at `src/collapse/singularity.js:165`.
+- Replace the placeholder `Important Text!!!!` of the `singSlider1` label (`index.html:444`) with a
+  proper description; `singSlider1.max` must be set to 2000 dynamically by `loadSingularityHTML` /
+  `changeSingLevel`.
+- `sing1Effect0..2` and `sing0Effect*` need distinct colours (today slot 0 is warm and slot 1 is blue).
+- The three Ringularity control buttons: the existing `singControl(i, n)` already supports the `n`
+  argument, but `index.html:451-457` only ever passes 0; add a button group for the Ringularity (or
+  switch between the two Singularities within one group).
 
-- 两座共用 Charge 时，任意时刻 `incrementy.charge ≥ 0`；缩回密度必须如数返还 Charge。
-- `inPurification(3)` 下禁止操作奇点（`singControl`/`changeSingLevel` 已有该判定，需保持对两座一致）。
-- `obliterateReset()` 会把两座 `level`/`highestLevel` 归零（`src/obliterate/obliterate.js:59-62`），需确保 `ringularityCapBonus` 随之归零且无残留。
-- 不得出现 `NaN` / `Infinity`（Charge 与密度均为普通 Number/Decimal，注意 `Number.MAX_VALUE` 上限）。
+**FR-1.6 Edge cases**
 
-### FR-2 Energy Upgrade 106（`energyUpgradeData[1][5]`）
+- With a shared Charge pool, `incrementy.charge >= 0` must hold at all times; shrinking a Density must
+  refund exactly as much Charge as it cost.
+- The Singularity must not be usable inside `inPurification(3)` (`singControl` / `changeSingLevel`
+  already check this; keep it consistent for both Singularities).
+- `obliterateReset()` zeroes both `level`/`highestLevel` (`src/obliterate/obliterate.js:59-62`);
+  `ringularityCapBonus` must follow and leave no residue.
+- No `NaN` / `Infinity` may appear (Charge and Density are plain Number/Decimal values; mind the
+  `Number.MAX_VALUE` limit).
 
-| 项 | 需求 |
+### FR-2 Energy Upgrade 106 (`energyUpgradeData[1][5]`)
+
+| Item | Requirement |
 | --- | --- |
-| 主题 | 1xx 分支 = Singularity / Charge / Baselessness |
-| 内容 | **解锁 Ringularity 的第 1 个效果（`singEffects[3]`）** |
-| 依据 | 源码注释 `// Unlock a new Singularity Effect`；`singEffects[3]` 在 `21cbf58` 中即归属 Ringularity（Ringularity 也是一座"Singularity"） |
-| 类型 | `isUnlock: true`（一次性解锁，非数值型） |
-| 代价 | `cost: 3`（沿用同分支曲线：101–104 = 1，105 = 2） |
-| 前置 | 自动由 `canPurchaseTreeUpgrade` 保证需要 105 已激活 |
-| 表现 | `desc: 'Unlock the Ringularity's first Singularity Effect'`；`eff` 返回 `D(1)`（unlock 型节点按现有惯例即可） |
+| Theme | 1xx branch = Singularity / Charge / Baselessness |
+| Content | **Unlock the Ringularity's 1st effect (`singEffects[3]`)** |
+| Basis | the source comment `// Unlock a new Singularity Effect`; `singEffects[3]` already belonged to the Ringularity in `21cbf58` (the Ringularity is a "Singularity" too) |
+| Type | `isUnlock: true` (a one-time unlock, not numeric) |
+| Cost | `cost: 3` (following the branch curve: 101-104 = 1, 105 = 2) |
+| Prerequisite | `canPurchaseTreeUpgrade` already requires 105 to be active |
+| Presentation | `desc: 'Unlock the Ringularity's first Singularity Effect'`; `eff` returns `D(1)` (the existing convention for unlock nodes) |
 
-**关联需求**
-- 该解锁需与 `singFunctions[9]`（解锁 Ringularity 本体）互补：**有奇点但无 106 → 第 1 个效果不生效**；有 106 但未解锁奇点 → 效果暂不生效。
-- 需在 UI 上正确显示"Unlocked!"（`energyTree.js:155` 已支持 `isUnlock` 分支）。
+**Related requirements**
 
-**备选方案（若评审否决）**
-- B1：106 解锁 Singularity 的第 4 个效果（需扩展 UI 槽位，改动更大）。
-- B2：106 降低 Ringularity 的解锁门槛（与 `singFunctions[9]` 的 500 节流冲突，不推荐）。
+- This unlock complements `singFunctions[9]` (which unlocks the Ringularity itself): **having the
+  Ringularity but not 106 means the 1st effect does nothing**; having 106 but no Ringularity means the
+  effect is inactive for now.
+- The UI must show "Unlocked!" correctly (the `isUnlock` branch already exists in
+  `energyTree.js:155`).
 
----
+**Alternatives (if this is rejected during review)**
 
-### FR-3 Energy Upgrade 305（`energyUpgradeData[3][4]`）
+- B1: 106 unlocks the Singularity's 4th effect (needs more UI slots and is a bigger change).
+- B2: 106 lowers the Ringularity's unlock threshold (conflicts with the 500 gate in `singFunctions[9]`;
+  not recommended).
 
-| 项 | 需求 |
+### FR-3 Energy Upgrade 305 (`energyUpgradeData[3][4]`)
+
+| Item | Requirement |
 | --- | --- |
-| 主题 | 3xx 分支 = Pringle |
-| 内容 | **"Cardinals boost all Perfected Pringles"**（Cardinals 乘算全部 "Perfected" Pringle） |
-| 依据 | 本仓库历史提交 `42ff10e feat: New 3xx Branch` 中节点 305 的原文案 |
-| 类型 | 数值型（`sign: 'x'`，`baseValue: 1`） |
-| 代价 | `cost: 2`（同分支 301–304 = 1） |
-| 接入点 | `getPringleEffect(i)`（`src/obliterate/pringles.js:238-240`）；对 `colorDesc/name === 'Perfected'` 的 Pringle（索引 2 与 5）追加 `×` 乘区 |
+| Theme | 3xx branch = Pringle |
+| Content | **"Cardinals boost all Perfected Pringles"** |
+| Basis | the original wording of node 305 in this repository's commit `42ff10e feat: New 3xx Branch` |
+| Type | numeric (`sign: 'x'`, `baseValue: 1`) |
+| Cost | `cost: 2` (301-304 in the same branch = 1) |
+| Hook | `getPringleEffect(i)` (`src/obliterate/pringles.js:238-240`); add a `x` multiplier for the Pringles named "Perfected" (indices 2 and 5) |
 
-**需要确认的实现细节**
-- "Perfected Pringle" 指 `pringleData[2]`（Perfected Green）与 `pringleData[5]`（Perfected Orange）。是否两者都受益，需评审确认（建议：两者都受益）。
-- 乘区建议形如 `× log10(cardinals + 10)^k`，并加 `Number.MAX_VALUE` 上限保护。
+**Implementation details that need confirmation**
 
-**备选方案**
-- B1：采用 `origin/singularity-2` 的 "Factor Boosts no longer reset ANYTHING"（属 QoL/自动化收尾，与 3xx 的 Pringle 主题不符，不推荐）。
-- B2：其余 Pringle 主题数值（如"所有 Pringle 效果 +x%"）。
+- "Perfected Pringles" means `pringleData[2]` (Perfected Green) and `pringleData[5]` (Perfected Orange).
+  Whether both should benefit needs a review decision (suggested: both).
+- The multiplier is suggested as `x log10(cardinals + 10)^k`, with a `Number.MAX_VALUE` clamp.
 
----
+**Alternatives**
 
-### FR-4 Energy Upgrade 402（`energyUpgradeData[4][1]`）
+- B1: adopt `origin/singularity-2`'s "Factor Boosts no longer reset ANYTHING" (a QoL/automation wrap-up
+  that does not fit the Pringle theme of the 3xx branch; not recommended).
+### FR-4 Energy Upgrade 402 (`energyUpgradeData[4][1]`)
 
-| 项 | 需求 |
+| Item | Requirement |
 | --- | --- |
-| 主题 | 4xx 分支 = Instability / Realm |
-| 内容 | **"Unlock Imaginary Shifts"** 并补完 Imaginary Shift 机制 |
-| 依据 | 本仓库历史提交 `990879a`；`src/data/player.js:35` 已有存储；`src/markup/factors.js:27-59` 已支持 `imaginary` |
-| 类型 | `isUnlock: true` |
-| 代价 | `cost: 2` |
-| 前置 | 需 401 已激活 |
+| Theme | 4xx branch = Instability / Realm |
+| Content | **"Unlock Imaginary Shifts"** plus finishing the Imaginary Shift mechanic |
+| Basis | this repository's commit `990879a`; the storage already exists in `src/data/player.js:35`; `src/markup/factors.js:27-59` already supports `imaginary` |
+| Type | `isUnlock: true` |
+| Cost | `cost: 2` |
+| Prerequisite | 401 must be active |
 
-**必须补完的子项（否则 EUP402 无实际内容）**
-1. `imaginaryShiftData`：定义各次 Imaginary Shift 的门槛与效果（`src/markup/markup.js:153-155` 现为空数组）。
-2. `getImaginaryShiftReq(shifts)`：定义下一次 Imaginary Shift 的要求。
-3. `imaginaryShift()`：实现递增 `data.imaginary.shifts` 并执行相应重置（`src/markup/markup.js:156-162` 现为空壳）。
-4. UI：`imaginaryShiftButton` 与 `iFactorContainer`/`iFactor{i}` 元素需加入 `index.html` 并在 `switchSubtab('factor','markup')` 时按 `getEUPEffect(4,1)` 显示/隐藏（参考 `990879a` 对 `switchSubtab` 的改动）。
-5. 显示：`updateMarkupHTML()` 需输出 iFactor 的信息（`990879a` 中已有参考实现）。
-6. `data.imaginary` 存档字段已存在，**无需迁移**；但 `hasFactor(n, true)` 依赖 `data.imaginary.shifts`，需保证旧存档读到默认 0。
-7. 注意 `990879a` 中的历史实现存在笔误（`data.imaginary[n]` 应为 `data.imaginary.factors[n]`），移植时必须修正。
+**Sub-items that have to be finished (otherwise EUP402 has no content)**
 
-**备选方案**：`origin/v05-destabilization` 的 "Permanently convert the Forgotten Realm to the Destabilized Realm"（内容量小，仅改 Realm 名称/锁定值，不推荐作为终点前的主线内容）。
+1. `imaginaryShiftData`: define the requirement and effect of each Imaginary Shift (currently an empty
+   array at `src/markup/markup.js:153-155`).
+2. `getImaginaryShiftReq(shifts)`: define the requirement of the next Imaginary Shift.
+3. `imaginaryShift()`: increment `data.imaginary.shifts` and run the matching reset (currently an empty
+   shell at `src/markup/markup.js:156-162`).
+4. UI: the `imaginaryShiftButton` and `iFactorContainer` / `iFactor{i}` elements have to be added to
+   `index.html` and shown/hidden by `getEUPEffect(4,1)` when `switchSubtab('factor','markup')` runs
+   (see how `990879a` changed `switchSubtab`).
+5. Presentation: `updateMarkupHTML()` has to output the iFactor information (there is a reference
+   implementation in `990879a`).
+6. The `data.imaginary` save field already exists, so **no migration is needed**; but `hasFactor(n, true)`
+   depends on `data.imaginary.shifts`, so old saves must read the default 0.
+7. Note that the historical implementation in `990879a` has a typo (`data.imaginary[n]` should be
+   `data.imaginary.factors[n]`) that must be fixed when porting it.
 
----
+**Alternative**: `origin/v05-destabilization`'s "Permanently convert the Forgotten Realm to the
+Destabilized Realm" (little content, it only renames the Realm / changes lock values; not recommended as
+the main pre-Endgame content).
 
-### FR-5 Endgame（终点）
+### FR-5 Endgame
 
-**定义：Ringularity 密度达到 2000（H<sub>ω<sup>3</sup>2</sub>）即为 Endgame。**
+**Definition: Ringularity Density reaching 2000 (H<sub>ω<sup>3</sup>2</sub>) is the Endgame.**
 
-| 子项 | 需求 |
+| Sub-item | Requirement |
 | --- | --- |
-| 判定 | `data.sing.level[1] >= 2000`（或 `hasReachedRingularityEndgame()`） |
-| 进度展示 | 在 Singularity 页（或状态栏）显示 `Ringularity 进度 x / 2000` 与序数形式 |
-| 终点反馈 | 达成时：一次性提示（`createAlert`/`showNotification`）+ 永久标记（如状态栏徽章 / 终点条目常亮） |
-| 终点成就 | 新增成就（建议置于 `achievements` 末尾，避免破坏既有索引）；`data.achs` 由既有 `Array(achievements.length)` 默认值自动扩展 |
-| 占位清理 | 全仓库不得再出现 `(Coming Soon)` / `???` 作为玩家可见文案 |
-| 数值安全 | 新增倍率统一走 ExpantaNum 或 `softcap` / `Math.min(..., Number.MAX_VALUE)` |
-| 可复现性 | 到达 2000 后内容进入"完成"状态；不强制新机制（是否提供通关后重玩回路见 §11 开放问题） |
+| Check | `data.sing.level[1] >= 2000` (or `hasReachedRingularityEndgame()`) |
+| Progress display | show `Ringularity progress x / 2000` plus the ordinal form on the Singularity page (or in the status bar) |
+| Completion feedback | on completion: a one-time alert (`createAlert`/`showNotification`) plus a permanent marker (a status-bar badge / a permanently lit entry) |
+| Completion achievement | a new achievement (suggested at the end of `achievements` so existing indices keep working; `data.achs` grows automatically through the existing `Array(achievements.length)` default) |
+| Placeholder cleanup | `(Coming Soon)` / `???` must no longer appear as player-visible text anywhere |
+| Numeric safety | new multipliers go through ExpantaNum or `softcap` / `Math.min(..., Number.MAX_VALUE)` |
+| Replayability | after 2000 the content enters a "finished" state; no new mechanic is forced (whether to offer a post-completion loop is an open question in §11) |
 
-**与其他系统的衔接要求**
-- 让 `EUP 106 / 305 / 402` 成为通往 2000 的路标（分别对应奇点效果解锁、Pringle 强化、Factor Shift 扩展）。
-- 允许在 500 以上新增 `singFunctions` 门槛（Total Density 已可超过 500），从而在 500→2000 区间填充目标；新增函数会自动生成 UI 元素（`initSingularityFunctions` 使用 `createElement`，`src/collapse/singularity.js:64-78`），但需同步 `data.sing.hasEverHadFunction` 长度与成就。
+**Interfaces with the other systems**
 
-### FR-6 配套需求（UI / 成就 / 教程 / 状态栏 / 设置）
+- Make `EUP 106 / 305 / 402` signposts on the way to 2000 (they unlock the Singularity effect, boost the
+  Pringles and extend the Factor Shifts respectively).
+- Allow new `singFunctions` thresholds above 500 (Total Density can already exceed 500), filling the
+  500 -> 2000 range with goals; new functions generate their UI automatically (`initSingularityFunctions`
+  uses `createElement`, `src/collapse/singularity.js:64-78`), but `data.sing.hasEverHadFunction` and the
+  achievements have to be extended in step.
 
-| 子项 | 需求 | 相关位置 |
+### FR-6 Supporting requirements (UI / achievements / tutorials / status bar / settings)
+
+| Sub-item | Requirement | Location |
 | --- | --- | --- |
-| 成就 | 补 Ringularity 里程碑成就、Imaginary Shift 成就、Endgame 成就；**新成就一律追加到末尾** | `src/minor/achievements.js:1`、`initAchs()` |
-| 教程 | `sing` 子页教程需覆盖 Ringularity（当前教程只讲 Singularity） | `src/helpers/tabs.js:74-77` |
-| 状态栏 | 若 Endgame 使用新的"模式/状态"，需同步状态文本 | `src/helpers/worldStatus.js:16` |
-| 设置项 | **高风险**：新增开关须同时改 `SETTINGS_DESCS`、`settingsDefaults`、`index.html` 的 `settingsToggleN` 按钮；数组长度变化会影响 `data.sToggles` 的存档索引 | `src/minor/settings.js:3-15`、`index.html:611-653` |
-| 能量树文案 | 修复 `Infinity` 显示；106/305/402 的 `desc` 不得含占位 | `src/obliterate/energyTree.js:155` |
-| 加载顺序 | 若新增脚本文件，需同步 `index.html` 的 `defer` 顺序（依赖前置） | `index.html:13-71`、`src/update/update.js:1-56` |
+| Achievements | add Ringularity Milestone, Imaginary Shift and Endgame achievements; **new achievements always go at the end** | `src/minor/achievements.js:1`, `initAchs()` |
+| Tutorial | the `sing` subtab tutorial has to cover the Ringularity (today it only explains the Singularity) | `src/helpers/tabs.js:74-77` |
+| Status bar | if the Endgame introduces a new "mode/state", the status text has to follow | `src/helpers/worldStatus.js:16` |
+| Settings | **high risk**: a new toggle means changing `SETTINGS_DESCS`, `settingsDefaults` and the `settingsToggleN` buttons in `index.html`; a changed array length shifts every `data.sToggles` index in existing saves | `src/minor/settings.js:3-15`, `index.html:611-653` |
+| Energy Tree text | fix the `Infinity` display; the `desc` of 106/305/402 must not contain placeholders | `src/obliterate/energyTree.js:155` |
+## 6. Data and save requirements
+
+1. **Defaults**: every new field has to be declared in `getDefaultPlayer()` (`src/data/player.js`).
+2. **Backwards compatibility**: `unpackSave()` only walks the keys a save actually contains, so old
+   saves automatically keep the defaults for missing keys (no extra handling needed).
+3. **Array growth**: `data.sing.level` / `highestLevel` are already length-2 arrays
+   (`src/data/player.js:30`), so **no migration is needed** for this work; if `singFunctions` grows
+   (optional, FR-5), `data.sing.hasEverHadFunction` relies on its `Array(singFunctions.length)` default
+   and old saves hold a shorter array - those have to be padded explicitly in `fixOldSaves()` together
+   with a version bump.
+4. **Version bump**: change `VERSION` / `VERSION_NAME` / `VERSION_DATE` (`src/data/saving.js:2-4`) and
+   add a migration branch in `fixOldSaves()` following the existing style (the newest one at the time was
+   `0.4.3p3`; `0.5.0` was suggested).
+5. **Migration style**: keep using the existing
+   `if(data.loadedVersion === "old") { ...; data.loadedVersion = "new" }` chain.
+6. **No destructive migrations**: never reset a player's existing `sing.level` / `energyUpgrades`
+   (`energyUpgrades` is an array, so new nodes need no migration).
+7. **Cloud saving**: if Cloud Saving is enabled, the version-incompatibility messaging has to stay
+   consistent (`src/data/cloud.js`).
 
 ---
 
-## 6. 数据与存档需求
+## 7. Non-functional requirements
 
-1. **默认值**：所有新增字段必须在 `getDefaultPlayer()`（`src/data/player.js`）声明。
-2. **向后兼容**：`unpackSave()` 只遍历存档中已存在的键，因此旧存档缺少新键时会自动保留默认值（无需额外处理）。
-3. **数组扩展**：`data.sing.level` / `highestLevel` 已是长度 2 数组（`src/data/player.js:30`），本次**无需迁移**；若 `singFunctions` 变长（FR-5 可选），`data.sing.hasEverHadFunction` 依赖 `Array(singFunctions.length)` 默认值，但旧存档里该数组较短，需在 `fixOldSaves()` 显式补齐并升版。
-4. **版本升级**：修改 `VERSION` / `VERSION_NAME` / `VERSION_DATE`（`src/data/saving.js:2-4`），并按既有风格在 `fixOldSaves()` 追加迁移分支（当前最新为 `0.4.3p3`；建议 `0.5.0`）。
-5. **迁移写法**：沿用现有 `if(data.loadedVersion === "旧版本") { ...; data.loadedVersion = "新版本" }` 链。
-6. **禁止破坏性迁移**：不得重置玩家已有的 `sing.level` / `energyUpgrades`（`energyUpgrades` 为数组，新增节点不需要迁移）。
-7. **云存档**：若启用 Cloud Saving，版本不兼容提示逻辑需保持一致（`src/data/cloud.js`）。
-
----
-
-## 7. 非功能需求
-
-| 类别 | 要求 |
+| Category | Requirement |
 | --- | --- |
-| 数值安全 | 所有新倍率不得产生 `NaN` / `Infinity`；Decimal 场景用 ExpantaNum（`D()`），Number 场景用 `softcap` / `Math.min(..., Number.MAX_VALUE)` |
-| 性能 | 不得在 `mainLoop`（50ms 间隔）内做 O(n) 以上的重计算；`singEffects` / 里程碑判定应为 O(1) 或极小常数 |
-| 兼容性 | 桌面端与移动端（`isMobileMode()`）均需可用；`mobile.css` 中新 UI 不得溢出 |
-| 可维护性 | 沿用现有代码风格（无框架、全局函数、`let` + 箭头函数）；新增逻辑放在对应模块文件内 |
-| 可观测性 | 浏览器控制台零报错；新增逻辑不得吞掉既有 `try/catch`（`energyTree.js:94-97`）之外的异常 |
-| 可测试性 | 无测试框架；验收以"手动清单 + 控制台 + 存档往返"为准（见 §9） |
-| 国际化 | 文案沿用现有英文风格（与仓库一致），不做多语言 |
+| Numeric safety | no new multiplier may produce `NaN` / `Infinity`; use ExpantaNum (`D()`) for Decimal math and `softcap` / `Math.min(..., Number.MAX_VALUE)` for plain numbers |
+| Performance | no O(n)-or-worse recomputation inside `mainLoop` (50 ms interval); `singEffects` / Milestone checks have to be O(1) or near-constant |
+| Compatibility | usable on desktop and mobile (`isMobileMode()`); new UI must not overflow in `mobile.css` |
+| Maintainability | follow the existing style (no frameworks, global functions, `let` + arrow functions); new logic lives in the matching module file |
+| Observability | zero console errors; new logic must not swallow exceptions outside the existing `try/catch` (`energyTree.js:94-97`) |
+| Testability | no test framework; acceptance is a manual checklist + console + save round-trips (see §9) |
+| Localisation | in-game text follows the existing English style (as the rest of the repository); no multi-language support |
 
 ---
 
-## 8. 许可证与署名合规（CC BY-NC-SA 4.0）
+## 8. License and attribution compliance (CC BY-NC-SA 4.0)
 
-**适用许可证**：Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International（仓库根目录 `license`，含 tl;dr 摘要）。
+**License in force**: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
+(`license` in the repository root, including the tl;dr summary).
 
-| # | 义务（来自 `license:1-12` 摘要） | 本次交付要求 |
+| # | Obligation (from the `license:1-12` summary) | Deliverable for this work |
 | --- | --- | --- |
-| 1 | **署名**：Give appropriate credit, provide a link to the license | `README.md` 必须写明：原始 *Ordinal Markup*（Patcail，MIT）与重制版 `ordinal-pringles`（FlamemasterNXF 及贡献者），并给出许可证链接（`https://creativecommons.org/licenses/by-nc-sa/4.0/`） |
-| 2 | **非商业**：Not use the material for commercial purposes | 不得添加广告、付费墙、捐赠解锁内容、赞助商植入；不得以本项目收费 |
-| 3 | **相同方式共享**：Distribute contributions under the same license | 本仓库贡献继续以 CC BY-NC-SA 4.0 分发；**禁止将 `license` 替换为其他许可证** |
-| 4 | **标明修改**：indicate if changes were made | 必须声明"已修改"及其内容（新增 Ringularity / EUP 106・305・402 / Endgame）；建议在 `README.md` 增加 "Changes" 小节，并记录日期 |
+| 1 | **Attribution**: give appropriate credit, provide a link to the license | `README.md` must state the original *Ordinal Markup* (Patcail, MIT) and the remake `ordinal-pringles` (FlamemasterNXF and contributors), and link the license (`https://creativecommons.org/licenses/by-nc-sa/4.0/`) |
+| 2 | **NonCommercial**: do not use the material for commercial purposes | no ads, paywalls, donation-gated content or sponsorships; the project may not be sold |
+| 3 | **ShareAlike**: distribute contributions under the same license | contributions stay under CC BY-NC-SA 4.0; **the `license` file must not be replaced with another license** |
+| 4 | **Indicate changes**: indicate if changes were made | a "Changes" statement and its content (the Ringularity / EUP 106, 305, 402 / the Endgame) are required; a "Changes" section in `README.md` with the date is recommended |
 
-**第三方资源清单（须保留其原始许可声明）**
+**Third-party resources (their original license notices must be preserved)**
 
-| 资源 | 位置 | 许可 |
+| Resource | Location | License |
 | --- | --- | --- |
-| vis-network | `src/lib/vis-network.min.js` | MIT（文件头保留版权声明） |
+| vis-network | `src/lib/vis-network.min.js` | MIT (copyright header kept in the file) |
 | ExpantaNum | `src/lib/ExpantaNum.js` | MIT |
 | BreakEternity | `src/lib/BreakEternity.js` | MIT |
-| Dosis 字体 | `styles/Dosis/` | SIL OFL（`styles/Dosis/OFL.txt`、`README.txt` 须保留） |
-| 游戏素材 | `res/**` | 本项目素材，随主许可证分发 |
+| Dosis font | `styles/Dosis/` | SIL OFL (`styles/Dosis/OFL.txt` and `README.txt` must be kept) |
+| Game art | `res/**` | project assets, distributed under the main license |
 
-**关于复用本仓库历史提交**：本方案引用的设计出自**本仓库自身**的提交（`21cbf58`、`990879a`、`42ff10e` 等），仍受同一 CC BY-NC-SA 4.0 约束；建议在 CHANGELOG / commit message 中标注来源 commit，以满足"标明修改"的可追溯性。
+**About reusing this repository's history**: the designs referenced above come from **this repository's
+own** commits (`21cbf58`, `990879a`, `42ff10e`, ...), which are under the same CC BY-NC-SA 4.0; citing
+the source commits in the CHANGELOG / commit messages is recommended so the "indicate changes"
+requirement is traceable.
 
-**交付物（合规相关）**
-- `README.md`：署名 + 许可证链接 + Changes 声明。
-- `CHANGELOG.md`（新建，可选但强烈建议）：记录本次新增内容与来源 commit。
-- `license`：**不得修改正文**（如需附注，只能在其它文件里引用，不得替换）。
+**Deliverables (compliance)**
 
----
-
-## 9. 验收标准（Acceptance Criteria）
+- `README.md`: attribution + license link + Changes statement.
+- `CHANGELOG.md` (new; optional but strongly recommended): the new content and the source commits.
+## 9. Acceptance criteria
 
 **A. Ringularity**
 
-- [ ] A1 Total Density 达到 500（Singularity 密度 H<sub>ω<sup>2</sup>5</sub>）后 `#singularity1` 正常显示，文案无 "(Coming Soon!)"。
-- [ ] A2 Singularity 在未获得 Ringularity 里程碑时无法超过 500；获得里程碑后可按 `singCap(0)` 突破 500。
-- [ ] A3 Ringularity 密度可成长至 2000，且滑块 `max` 正确、序数显示为 H<sub>ω<sup>3</sup>2</sub>。
-- [ ] A4 两座共用 Charge：提升/缩回任意一座后 `data.incrementy.charge` 账目自洽，`Charge = totalCharge - level[0] - level[1]`。
-- [ ] A5 Collapse / Obliteration / Respec（Passive、Energy、Instability）后 Charge 与两座密度、`ringularityCapBonus` 均正确重置/保留（与既有规则一致）。
-- [ ] A6 `singEffects[3..5]` 全部有实际 `desc()` 与 `effect()`，且被至少一处游戏计算引用。
-- [ ] A7 里程碑确实强化 `singEffects[0..2]`，且未改变其索引语义（`collapse.js:183`、`challenges.js:120`、`tick.js:14` 行为正常）。
+- [x] A1 Once Total Density reaches 500 (Singularity Density H<sub>ω<sup>2</sup>5</sub>), `#singularity1` is displayed and its text no longer says "(Coming Soon!)".
+- [x] A2 Without a Ringularity Milestone the Singularity cannot exceed 500; with Milestones it can pass 500 up to `singCap(0)`.
+- [x] A3 Ringularity Density can grow to 2000, the slider `max` is correct, and the ordinal is displayed as H<sub>ω<sup>3</sup>2</sub>.
+- [x] A4 Both Singularities share Charge: after growing/shrinking either one, `data.incrementy.charge` stays consistent (`Charge = totalCharge - level[0] - level[1]`).
+- [x] A5 After a Collapse / Obliteration / Respec (Passive, Energy, Instability) the Charge, both Densities and `ringularityCapBonus` are reset/kept correctly (matching the existing rules).
+- [x] A6 `singEffects[3..5]` all have a real `desc()` and `effect()` and are referenced by at least one game calculation.
+- [x] A7 Milestones really strengthen `singEffects[0..2]` without changing their index meaning (`collapse.js:183`, `challenges.js:120`, `tick.js:14` keep working).
 
 **B. Energy Upgrade 106 / 305 / 402**
 
-- [ ] B1 三个节点均可被玩家购买（代价不再是 `Infinity`），能量树悬停文本显示正确（无 `Infinity`、无 `???`）。
-- [ ] B2 106 生效后 Ringularity 的第 1 个效果才可用；未购买时该效果不生效。
-- [ ] B3 305 生效后 "Perfected" Pringle 的效果数值按设计提升，且不溢出。
-- [ ] B4 402 生效后 Imaginary Shift 可用：按钮出现、shift 可执行、iFactor 可购买与显示、`data.imaginary.shifts` 正确递增并持久化。
-- [ ] B5 三者的 `isUnlock` 语义正确（购买后分别为 "Unlocked!" / 显示当前效果）。
+- [x] B1 All three nodes can be bought (their cost is no longer `Infinity`) and the Energy Tree hover text is correct (no `Infinity`, no `???`).
+- [x] B2 After 106, the Ringularity's 1st effect becomes usable; without it, the effect does nothing.
+- [x] B3 After 305, the "Perfected" Pringle values rise as designed without overflowing.
+- [x] B4 After 402, Imaginary Shifts are usable: the button appears, a shift can be performed, iFactors can be bought and are displayed, and `data.imaginary.shifts` increments and persists.
+- [x] B5 The `isUnlock` semantics of all three are correct (a bought node shows either "Unlocked!" or its current effect).
 
 **C. Endgame**
 
-- [ ] C1 Ringularity 达到 2000 时给出一次性终点提示与永久标记。
-- [ ] C2 新增终点成就可正常解锁并计入 `data.achs`。
-- [ ] C3 全仓库玩家可见文案不再出现 `(Coming Soon)` / `???`。
+- [x] C1 Reaching Ringularity Density 2000 gives a one-time completion alert and a permanent marker.
+- [x] C2 The new completion achievement unlocks and counts towards `data.achs`.
+- [x] C3 No player-visible text in the repository still shows `(Coming Soon)` / `???`.
 
-**D. 存档与版本**
+**D. Saves and version**
 
-- [ ] D1 全量旧版本存档（`0.0.6` 起的历史节点）均可加载，无 `NaN`、无控制台报错。
-- [ ] D2 新版本号在设置页正确显示（`versionText`，`src/update/update.js:34`）。
-- [ ] D3 含新字段/新数组长度的存档可"保存 → 刷新 → 加载"往返一致。
+- [x] D1 Saves from every older version (the historical nodes from `0.0.6` on) still load, with no `NaN` and no console errors.
+- [x] D2 The new version number is displayed correctly on the settings page (`versionText`, `src/update/update.js:34`).
+- [x] D3 A save containing the new fields / array lengths round-trips ("save -> reload -> load") unchanged.
 
-**E. 许可证**
+**E. License**
 
-- [ ] E1 `README.md` 含署名、许可证链接与"已修改"声明。
-- [ ] E2 `license` 正文未被替换或删除；第三方许可文件（`styles/Dosis/OFL.txt` 等）保留。
-- [ ] E3 无任何商业化元素（广告 / 付费 / 捐赠换内容）。
+- [x] E1 `README.md` contains the attribution, the license link and the "changes were made" statement.
+- [x] E2 The `license` text has not been replaced or deleted; the third-party license files (`styles/Dosis/OFL.txt`, ...) are still present.
+- [x] E3 There is no commercial element (ads / paid content / donation-gated content).
 
 ---
 
-## 10. 风险与依赖
+## 10. Risks and dependencies
 
-| 编号 | 风险 | 影响 | 缓解措施 |
+| # | Risk | Impact | Mitigation |
 | --- | --- | --- | --- |
-| R1 | `500` 与 `data.sing.level[0]` 硬编码遗漏 | 第二座账目错乱 / 上限失效 | 已逐处定位（§4.2、FR-1.4）；实现时全仓搜索 `sing.level[0]`、`>= 500`、`Math.min(500` |
-| R2 | `singEffects[0..2]` 索引语义被改动 | 连带破坏 `collapse.js:183`、`challenges.js:120`、`tick.js:14` | 只做"叠加倍率"，不改签名与索引；改动后回归验证 Cardinal/Decrementy/AutoBuyer 数值 |
-| R3 | 设置项数组长度变化 | `data.sToggles` 存档索引错位 | 非必要不新增设置项；若必须，放在末尾并在 `fixOldSaves` 补齐 |
-| R4 | `singFunctions` 变长 | 旧存档 `hasEverHadFunction` 长度不足 | `fixOldSaves` 显式补齐并升版 |
-| R5 | 平衡失控（里程碑增益过强/过弱） | 500→2000 区间过短或过长 | 全部里程碑数值集中为常量，便于调整为平衡参数 |
-| R6 | 数值溢出（`Infinity`/`NaN`） | 存档损坏 | 强制走 `softcap` / `Number.MAX_VALUE` 上限；验收 D1 覆盖 |
-| R7 | 许可证不合规（漏署名/改动声明） | 违反 CC 条款 | 交付 E1–E3 清单；评审时逐项确认 |
-| R8 | 依赖未合并分支的代码 | 与 `main` 冲突 | 只复用本仓库历史提交（§4.4）中的设计思路，不直接 merge 分支 |
+| R1 | A hardcoded `500` or `data.sing.level[0]` is missed | the second Singularity's ledger breaks / its cap stops working | every occurrence was located up front (§4.2, FR-1.4); search the whole repository for `sing.level[0]`, `>= 500`, `Math.min(500` while implementing |
+| R2 | The index meaning of `singEffects[0..2]` changes | breaks `collapse.js:183`, `challenges.js:120`, `tick.js:14` | only add "stacked multipliers", never change signatures or indices; re-verify the Cardinal/Decrementy/AutoBuyer values afterwards |
+| R3 | The settings array length changes | every `data.sToggles` index shifts in existing saves | avoid new settings; if one is unavoidable, append it at the end and pad in `fixOldSaves` |
+| R4 | `singFunctions` grows | old saves have a too-short `hasEverHadFunction` | pad explicitly in `fixOldSaves` and bump the version |
+| R5 | Balance runs away (Milestone bonuses too strong/weak) | the 500 -> 2000 range is too short or too long | keep every Milestone value in one constant so it stays tunable |
+| R6 | Numeric overflow (`Infinity`/`NaN`) | corrupted saves | force `softcap` / `Number.MAX_VALUE` clamps; acceptance item D1 covers it |
+| R7 | License non-compliance (missing attribution / change statement) | violates the CC terms | work through the E1-E3 checklist; confirm item by item during review |
+| R8 | Depending on code from unmerged branches | conflicts with `main` | only reuse the design ideas from this repository's own history (§4.4), never merge the branches |
 
-**外部依赖**：无（纯静态、零构建）。**内部依赖**：`singFunctions` / `singEffects` / Charge 账目 / 能量树 / 存档迁移。
+## 11. Open questions
 
----
+### 11.1 Review record (Q1-Q8, conclusions kept for traceability)
 
-## 11. 开放问题（Open Questions，待评审确认）
+> Q1 / Q2 / Q3 / Q4 / Q7 were never settled and have been handed over as long-term open questions
+> (see §11.2) instead of being part of this work; Q5 / Q6 / Q8 were implemented as recorded below.
 
-| # | 问题 | 备选 | 建议 |
+| # | Question | Options | Recommendation |
 | --- | --- | --- | --- |
-| Q1 | Ringularity 是否沿用 `incrementy.charge`？ | 共用（推荐）/ 独立资源 | 共用：脚手架即如此，改动最小 |
-| Q2 | `singEffects[3..5]` 的具体文本与公式？ | 槽 3 = Cardinal/Aleph 类；槽 4 = Fractal Energy/能量类；槽 5 = Endgame 总倍率 | 按建议，平衡阶段定系数 |
-| Q3 | 里程碑数值（100/300/600/1000/1500，上限 +50/+100/+200/+400/+800）是否合适？ | 可整体缩放 | 先按建议实装，再调 |
-| Q4 | 是否在 500–2000 之间新增 `singFunctions`？ | 新增（内容更饱满）/ 不新增（改动更小） | 新增 2–3 个，填充 500→2000 区间 |
-| Q5 | 305 的 "Perfected Pringle" 是"两个都受益"还是"仅 Perfected Green"？ | 两者 / 单个 | 两者都受益 |
-| Q6 | 402 选 Imaginary Shifts 还是 Destabilized Realm？ | Imaginary（推荐）/ Destabilized | Imaginary：内容量足、有半成品 |
-| Q7 | 达到 2000 后是否提供"通关后回路"（如分数/重玩）？ | 提供 / 不提供 | 不提供（明确"完成"，避免无限膨胀） |
-| Q8 | 版本号定为？ | `0.5.0` / `0.4.4` | `0.5.0`（新增机制级内容） |
+| Q1 | Should the Ringularity reuse `incrementy.charge`? | shared (recommended) / separate resource | shared: the scaffolding already assumes it, smallest change |
+| Q2 | The exact text and formulas of `singEffects[3..5]`? | slot 3 = Cardinal/Aleph flavoured; slot 4 = Fractal Energy / energy flavoured; slot 5 = a global Endgame multiplier | as suggested; the coefficients are set during balancing |
+| Q3 | Are the Milestone values suitable (100/300/600/1000/1500, caps +50/+100/+200/+400/+800)? | scale them as a whole | implemented as suggested, tune later |
+| Q4 | Add new `singFunctions` between 500 and 2000? | add (more content) / do not add (smaller change) | add 2-3 to fill the 500 -> 2000 range |
+| Q5 | Should EUP 305's "Perfected Pringle" mean "both benefit" or "only Perfected Green"? | both / only one | both benefit |
+| Q6 | EUP402: Imaginary Shifts or Destabilized Realm? | Imaginary (recommended) / Destabilized | Imaginary: plenty of content, half-built already |
+| Q7 | Should there be a post-completion loop once 2000 is reached (score/replay)? | yes / no | no (make "finished" explicit, avoid endless growth) |
+| Q8 | Which version number? | `0.5.0` / `0.4.4` | `0.5.0` (mechanic-level content) |
 
----
+### 11.2 Open questions handed to later maintainers (Q9-Q16)
 
-## 12. 里程碑与工作量估算
+The questions below are out of scope for this work and were never settled. They are left to later
+maintainers / the community; the options and the current state are recorded so anyone can pick them up.
 
-| 里程碑 | 内容 | 主要涉及文件 | 预估 |
+| # | Question | Options | Current state / notes |
 | --- | --- | --- | --- |
-| M1 脚手架修复 | 上限参数化、Charge 账目去硬编码、解除 `#singularity1` 隐藏、`Infinity` 显示修复 | `singularity.js`、`incrementy.js`、`collapse.js`、`tabs.js`、`energyTree.js` | 0.5–1 天 |
-| M2 Ringularity 机制 | 里程碑、上限加成、`singEffects[3..5]`、效果接入、UI 文案与按钮 | `singularity.js`、`index.html`、`styles/main.css` | 1.5–2 天 |
-| M3 EUP 106/305/402 | 三节点内容 + Imaginary Shifts 补完 + Pringle 乘区 | `energyUpgrades.js`、`factors.js`、`markup.js`、`pringles.js`、`index.html` | 1.5–2 天 |
-| M4 Endgame | 判定、进度展示、终点成就与反馈、占位清理、（可选）新增 `singFunctions` | `singularity.js`、`achievements.js`、`worldStatus.js`、`saving.js` | 0.5–1 天 |
-| M5 平衡与打磨 | 数值调优、移动端适配、存档往返测试、文档/README 合规 | 全仓 + `README.md` | 1–1.5 天 |
-
-> 合计粗估：**5–8 个工作日**（单人、熟悉代码的前提下）。
+| Q9 | Should 2-3 new `singFunctions` be added for the Ringularity range (Density 500 -> 2000)? | add / keep as is | open (was Q4): today only the 5 Milestones provide goals |
+| Q10 | Ringularity balance: Milestone thresholds 100/300/600/1000/1500, cap bonuses +50…+800, and the strength of `singEffects[3..5]` | rescale / adjust per stage / keep | open (was Q1/Q2/Q3): needs long-term play-testing; the values are already collected in `ringularityMilestones` |
+| Q11 | Should there be a post-completion loop (New Game+, score board, stats page, hidden content)? | provide / keep it "finished" | open (was Q7): the current design keeps it explicit, and The End screen is a natural entry point |
+| Q12 | EUP 305: the coefficient `EUP305_EXPONENT = 2` and its scope - should Perfected Blue (index 8, which feeds `getHBuyableCap`) be included? | change the coefficient / narrow the scope / keep | open: the coefficient is a single constant at the top of `src/obliterate/energyUpgrades.js` |
+| Q13 | Imaginary Shifts: are the seven Ordinal Power thresholds (1e105…1e255) and the "only the Imaginary counts are reset" cost right? Should each Shift grant a permanent bonus? | retune the thresholds / add a bonus / keep | open: the thresholds live in `imaginaryShiftData` |
+| Q14 | Should the historical CHANGELOG entries for v0.0.6-v0.4.3p3 be backfilled? | backfill / keep pointing at git history | open: backfilling means inferring each entry from the commits, with limited accuracy |
+| Q15 | Should a minimal CI (GitHub Actions running the six `tests/*.smoke.js` suites) and a `.gitignore` (for stray files such as `jmeter.log`) be added? | add / do not add | current state: all six suites are pure Node with zero dependencies, so CI is a drop-in |
+| Q16 | Mobile and accessibility: wrapping of the full-screen End screen / the Imaginary panel on narrow screens, ESC to close, focus management | polish / keep | current state: `.endgameContainer` has `overflow-y: auto`, there is no keyboard or focus handling |
 
 ---
 
-## 附录 A：相关提交 / 分支索引
+## 12. Milestones and effort estimate
+
+| Milestone | Content | Main files | Estimate |
+| --- | --- | --- | --- |
+| M1 Scaffolding fixes | cap parameterisation, de-hardcoding the Charge ledger, un-hiding `#singularity1`, `Infinity` display fix | `singularity.js`, `incrementy.js`, `collapse.js`, `tabs.js`, `energyTree.js` | 0.5-1 day |
+| M2 Ringularity mechanic | Milestones, cap bonus, `singEffects[3..5]`, effect hook-up, UI text and buttons | `singularity.js`, `index.html`, `styles/main.css` | 1.5-2 days |
+| M3 EUP 106/305/402 | content of the three nodes + finishing Imaginary Shifts + the Pringle multiplier | `energyUpgrades.js`, `factors.js`, `markup.js`, `pringles.js`, `index.html` | 1.5-2 days |
+| M4 Endgame | the check, progress display, completion achievement and feedback, placeholder cleanup, (optional) new `singFunctions` | `singularity.js`, `achievements.js`, `worldStatus.js`, `saving.js` | 0.5-1 day |
+| M5 Balancing and polish | number tuning, mobile layout, save round-trip tests, docs/README compliance | whole repository + `README.md` | 1-1.5 days |
+
+> Rough total: **5-8 working days** (single developer familiar with the code base).
+>
+## Appendix A: relevant commits / branches
 
 ```
-21cbf58  feat: Ringularity                    （main 历史；UI/数据/解锁，效果未实现）
-3cb4f6c  chore: Hide Ringularity              （main 历史；隐藏 #singularity1）
-990879a  chore: WIP Mechanic, ...             （main 历史；Imaginary Shifts 存根 + EUP402 设想）
-42ff10e  feat: New 3xx Branch                 （3xx 分支改版；305 原为 "Cardinals boost all Perfected Pringles"）
-d22c73d  feat: Remove EUP401, impl EUP106     （origin/singularity-2；依赖 v0.5 系统，不适用）
-4f20fb3  feat: EUP305                         （origin/singularity-2；不适用）
-49b8e93  feat: Add EUP402                     （origin/v05-destabilization；备选）
-8dc106f  feat: Remove Singularity!            （origin/singularity-2；本方案不采用）
+21cbf58  feat: Ringularity                    (main history; UI/data/unlock, effects never implemented)
+3cb4f6c  chore: Hide Ringularity              (main history; hid #singularity1)
+990879a  chore: WIP Mechanic, ...             (main history; Imaginary Shifts stub + the EUP402 idea)
+42ff10e  feat: New 3xx Branch                 (3xx branch rework; 305 used to be "Cardinals boost all Perfected Pringles")
+d22c73d  feat: Remove EUP401, impl EUP106     (origin/singularity-2; depends on the v0.5 systems, not applicable)
+4f20fb3  feat: EUP305                         (origin/singularity-2; not applicable)
+49b8e93  feat: Add EUP402                     (origin/v05-destabilization; an alternative)
+8dc106f  feat: Remove Singularity!            (origin/singularity-2; not adopted here)
 ```
 
-## 附录 B：涉及文件清单（供实现阶段对照）
+## Appendix B: affected files (reference for the implementation)
 
-| 文件 | 本次是否需改动 | 说明 |
+| File | Changed in this work? | Notes |
 | --- | --- | --- |
-| `src/collapse/singularity.js` | 是 | FR-1 主战场（上限、里程碑、`singEffects[3..5]`、`singControl`/`changeSingLevel`） |
-| `src/boosters/incrementy.js` | 是 | Charge 账目（`:167`） |
-| `src/collapse/collapse.js` | 是 | Charge 账目（`:312`）、`singEffects[0]` 引用（`:183`） |
-| `src/helpers/tabs.js` | 是 | 解除隐藏（`:79`）、教程（`:74-77`） |
-| `index.html` | 是 | Ringularity 标签/按钮、Imaginary Shifts UI |
-| `src/obliterate/energyUpgrades.js` | 是 | EUP 106 / 305 / 402 |
-| `src/obliterate/energyTree.js` | 视情况 | 已就位；仅需确认文案显示 |
-| `src/obliterate/pringles.js` | 是 | EUP305 的 Pringle 乘区 |
-| `src/markup/factors.js` | 视情况 | Imaginary 分支已有；按需修正笔误 |
-| `src/markup/markup.js` | 是 | `imaginaryShift()` / `getImaginaryShiftReq` / 显示 |
-| `src/minor/achievements.js` | 是 | 新增成就（追加末尾） |
-| `src/data/saving.js` | 是 | 版本号 + 迁移 |
-| `src/data/player.js` | 视情况 | 若新增字段（`ringularityCapBonus` 可派生，不必存储） |
-| `src/helpers/worldStatus.js` | 视情况 | Endgame 状态文本 |
-| `src/minor/settings.js` | 尽量避免 | 高风险：数组索引 |
-| `README.md` | 是 | 许可证署名与 Changes 声明 |
-| `CHANGELOG.md` | 建议新建 | 记录变更与来源 commit |
-| `license` | **否** | 不得修改正文 |
+| `src/collapse/singularity.js` | yes | the main FR-1 file (caps, Milestones, `singEffects[3..5]`, `singControl`/`changeSingLevel`) |
+| `src/boosters/incrementy.js` | yes | the Charge ledger (`:167`) |
+| `src/collapse/collapse.js` | yes | the Charge ledger (`:312`), the `singEffects[0]` reference (`:183`) |
+| `src/helpers/tabs.js` | yes | un-hiding (`:79`) and the tutorial (`:74-77`) |
+| `index.html` | yes | the Ringularity tab/buttons and the Imaginary Shifts UI |
+| `src/obliterate/energyUpgrades.js` | yes | EUP 106 / 305 / 402 |
+| `src/obliterate/energyTree.js` | as needed | already in place; only the hover text had to be checked |
+| `src/obliterate/pringles.js` | yes | the EUP305 Pringle multiplier |
+| `src/markup/factors.js` | as needed | the imaginary branch existed; its typos had to be fixed |
+| `src/markup/markup.js` | yes | `imaginaryShift()` / `getImaginaryShiftReq` / the display |
+| `src/minor/achievements.js` | yes | new achievements (appended at the end) |
+| `src/data/saving.js` | yes | version number + migration |
+| `src/data/player.js` | as needed | new fields (if any; `ringularityCapBonus` is derived and need not be stored) |
+| `src/helpers/worldStatus.js` | as needed | Endgame status text |
+| `src/minor/settings.js` | avoid if possible | high risk: array indices |
+| `README.md` | yes | license attribution and the Changes statement |
+| `CHANGELOG.md` | created | the changelog with the source commits (`[0.5.0] "The Ringularity Update"` entry + the commit table) |
+| `src/helpers/modal.js` | yes | The End screen (`showEndgameScreen()` / `makeEndgameStatsHTML()` / `endgameResetConfirm()`) |
+| `tests/*.smoke.js` | yes (new) | the six offline smoke tests: `ringularity` / `imaginaryShifts` / `endgame` / `nanGuards` / `ordinalRecursion` / `fuzz` |
+| `license` | **no** | the text must not be modified |
 
 ---
 
-## 附录 C：设计决策记录（已确认）
+## Appendix C: design decision record (confirmed)
 
-| 决策 | 结论 | 来源 |
+| Decision | Conclusion | Source |
 | --- | --- | --- |
-| Ringularity 如何升级 Singularity | **提高 Singularity 密度上限（突破 500）+ 里程碑强化其 3 个效果** | 需求方确认 |
-| Endgame 定义 | **Ringularity 密度达到 2000** | 需求方确认 |
-| 复用历史设计的范围 | 仅限本仓库自身提交（合规前提） | 本文档 §4.4 / §8 |
+| How the Ringularity upgrades the Singularity | **raise the Singularity's Density cap (past 500) + strengthen its three effects at Milestones** | confirmed by the requester |
+| Definition of the Endgame | **Ringularity Density reaches 2000** | confirmed by the requester |
+| Scope of reusing historical designs | only this repository's own commits (license prerequisite) | §4.4 / §8 of this document |
 
 ---
 
-## 附录 D：实现状态（Implementation Status）
+## Appendix D: implementation status
 
-> 更新于 2026-09-28。勾选项表示已在代码中实现并通过冒烟测试（`tests/ringularity.smoke.js`，70/70 通过）。
+> Updated 2026-09-28. A checked item is implemented in the code and covered by a smoke test
+> (`ringularity` 70/70, `imaginaryShifts` 89/89, `endgame` 71/71, `nanGuards` 106/106,
+> `ordinalRecursion` 48/48, `fuzz` 0 violation; the commands are at the end of this appendix).
 
-**已完成 —— M1 脚手架修复 + M2 Ringularity 机制 + FR-5 Endgame + FR-2（EUP 106）**
+**Completed - M1 scaffolding fixes + M2 Ringularity mechanic + FR-5 Endgame + FR-2 (EUP 106)**
 
-- [x] 每座奇点的上限参数化：`singCap(0) = 500 + ringularityCapBonus()`、`singCap(1) = 2000`（`src/collapse/singularity.js`）
-- [x] Ringularity 里程碑（100/300/600/1000/1500 → 上限 +50/+100/+200/+400/+800），基于 `highestLevel[1]`（Obliteration 后清空）
-- [x] 里程碑强化 Singularity 的三个效果（`singEffectBoost(i)`，仅叠加、不改变索引语义）
-- [x] `singEffects[3..5]` 补全并接入计算链：× Cardinal 收益（EUP106 解锁）、× Incrementy 收益、× 全部 ℵ 效果
-- [x] Charge 账目去硬编码：`incrementy.js:167`、`collapse.js:312` 均扣除两座密度
-- [x] `changeSingLevel` / `singControl` / `maxSingLevel` 支持 `n = 1`，含 NaN 防护与上限钳制
-- [x] UI：解除 `#singularity1` 隐藏、标注正式文案、新增 `#ringularityControls` 按钮组与 `#ringularityCapText` / `#ringularityEndgameText`
-- [x] Endgame：Ringularity 密度 2000（H<sub>ω<sup>3</sup>2</sub>）判定 + 一次性提示（`data.sing.endgame`）+ 成就 "The Endgame"
-- [x] EUP 106 = "Unlock the Ringularity's first Singularity Effect"（`isUnlock: true`，`cost: 3`）；修复能量树 `Infinity` 显示
-- [x] 新字段 `data.sing.endgame` / `data.sing.ringularityTutorial`；旧存档自动取默认值（无需迁移）
-- [x] 首次解锁 Ringularity 的一次性教程弹窗（`data.sing.ringularityTutorial`）
+- [x] Per-Singularity caps: `singCap(0) = 500 + ringularityCapBonus()`, `singCap(1) = 2000` (`src/collapse/singularity.js`)
+- [x] Ringularity Milestones (100/300/600/1000/1500 -> caps +50/+100/+200/+400/+800), driven by `highestLevel[1]` (cleared after an Obliteration)
+- [x] Milestones strengthen the Singularity's three effects (`singEffectBoost(i)`; additive only, index meaning unchanged)
+- [x] `singEffects[3..5]` implemented and hooked into the calculation chains: x Cardinal gain (unlocked by EUP106), x Incrementy gain, x all Aleph effects
+- [x] Charge ledger de-hardcoded: both `incrementy.js:167` and `collapse.js:312` subtract both Densities
+- [x] `changeSingLevel` / `singControl` / `maxSingLevel` support `n = 1`, with NaN guards and cap clamping
+- [x] UI: `#singularity1` un-hidden, real texts, a new `#ringularityControls` button group and `#ringularityCapText` / `#ringularityEndgameText`
+- [x] Endgame: the Ringularity Density 2000 (H<sub>ω<sup>3</sup>2</sub>) check + a one-time alert (`data.sing.endgame`) + the "The Endgame" achievement
+- [x] EUP 106 = "Unlock the Ringularity's first Singularity Effect" (`isUnlock: true`, `cost: 3`); the Energy Tree `Infinity` display was fixed
+- [x] New fields `data.sing.endgame` / `data.sing.ringularityTutorial`; old saves fall back to the defaults (no migration needed)
+- [x] A one-time tutorial popup on first unlocking the Ringularity (`data.sing.ringularityTutorial`)
 
-**未完成（后续里程碑）**
+**Completed - FR-3 (EUP 305) and FR-4 (EUP 402 + Imaginary Shifts)**
 
-- [ ] FR-3：EUP **305** 仍为占位（`energyUpgrades.js:250`）
-- [ ] FR-4：EUP **402** + Imaginary Shifts 机制仍为占位（`energyUpgrades.js:276`）
-- [ ] Q4：500–2000 区间的新增 `singFunctions`（当前 Ringularity 段仅有 5 个 Milestone 作为目标）
-- [ ] Q1/Q2/Q3 的数值平衡确认；Q7 通关后回路；Q8 版本号升级（`VERSION` 尚未改动）
-- [ ] §8 许可证交付物：`README.md` 署名 + "已修改" 声明、`CHANGELOG.md`
+- [x] EUP 305 = "Cardinals boost all Perfected Pringles" (`cost: 2`, numeric): the multiplier is `log10(Cardinals + 10)^2`, clamped to `Number.MAX_VALUE`, and exactly x1 with no Cardinals (`EUP305_EXPONENT` is the balance parameter, `src/obliterate/energyUpgrades.js`)
+- [x] The 305 multiplier hooks into `getPringleEffectBaseline()` and applies to **every** Pringle named "Perfected" (2 = Green, 5 = Orange, 8 = Blue); the hover text and the real effect agree, and an unassigned Pringle still yields `baseValue` (`src/obliterate/pringles.js`)
+- [x] EUP 402 = "Unlock Imaginary Shifts" (`isUnlock: true`, `cost: 2`); its prerequisite is still 401 (no change needed in `energyTree.js` / `canPurchaseTreeUpgrade`)
+- [x] `imaginaryShiftData` defines the seven Imaginary Shifts and their Ordinal Power thresholds (`1e105` … `1e255`, balance parameters) together with `getImaginaryShiftReq()` / `canPerformImaginaryShift()` / `imaginaryShiftConfirm()` / `imaginaryShift()` (`src/markup/markup.js`, replacing the commented-out stub)
+- [x] An Imaginary Shift unlocks the next Imaginary Factor, raises the tier (`[1,1,1,1,1.3,1.9,2.2,2.3]`) and resets the Imaginary Factor counts; `data.imaginary.shifts` is a **permanent layer** (no reset clears it; the smoke test asserts this at source level)
+- [x] Existing defects fixed: `factorEffect()` read `data.imaginary[n]` (NaN), `buyMaxFactor()`'s imaginary branch used the normal Factor ledger for its cost, and the historical iFactor buttons were all hardcoded to `buyFactor(0)` (`src/markup/factors.js`)
+- [x] UI: the Factor subtab gained `#imaginaryShiftButton` and `#iFactorContainer` (seven `iFactor{n}` buttons calling `buyFactor(n, true)`), shown/hidden by EUP 402 (`index.html` + the new "Special Markup Rules" in `tabs.js`)
+- [x] Achievements: "Imagination" and "A Rift in the Factor Plane" appended at the end of the array (existing indices untouched, `src/minor/achievements.js`)
+- [x] Saves: `data.imaginary` needs no migration; `fixOldSaves()` clamps `shifts` to 0-7 and repairs the 7-entry `factors` ledger (NaN/Infinity normalisation, `src/data/saving.js`)
+- [x] Every Energy Tree placeholder is gone (the smoke test scans the whole table for `Coming Soon` / `???`)
 
-**验证方式**：`node tests/ringularity.smoke.js "<仓库根目录>"`（纯离线、无需浏览器；覆盖上限/里程碑/账目/存档往返/锁定守卫/UI 显隐/Endgame 提示）。
+**Completed - §8 license deliverables (v0.5.0)**
 
+- [x] `README.md`: attribution (Patcail's *Ordinal Markup*, MIT, plus FlamemasterNXF and contributors), the license link (`https://creativecommons.org/licenses/by-nc-sa/4.0/`), a "Changes" statement (Ringularity / EUP 106, 305, 402 / Imaginary Shifts / Endgame / The End), a third-party resource and license table, and the non-commercial note
+- [x] `CHANGELOG.md` (new): the `[0.5.0] "The Ringularity Update" - 2026-09-28` Added/Changed/Fixed entries, a source-commit table (`21cbf58`, `3cb4f6c`, `990879a`, `42ff10e`) and the alternatives that were not adopted
+- [x] `license` **unmodified** (it does not appear in `git status`); `styles/Dosis/OFL.txt` and `styles/Dosis/README.txt` are still present; the third-party library headers are untouched
+- [x] E3 check: no ads/paid/donation-gated content anywhere (a `patreon|paypal|donate|advert|sponsor` sweep only hits the README sentence that states the obligation)
+
+**Completed - The End screen + v0.5.0**
+
+- [x] The "The End" button has two entry points - the sidebar `#theEndButton` (below `#obliterateButton`) and the Singularity subtab's `#ringularityEndgameControls` / `#singEndgameButton` - both toggled by `updateEndgameButtonHTML()` (every tick and in `uHTML.load()`)
+- [x] Completion is latched **permanently** in `data.sing.endgame` (an Obliteration clears both Densities, so Density cannot be used for this); the trigger was extended to `level[1] >= 2000 || highestLevel[1] >= 2000`, and the one-time `createAlert` text now mentions the The End button
+- [x] The full-screen congratulations screen `#endgameContainer` / `#endgame` (`styles/modal.css`'s `.endgameContainer`, whose `pointer-events: all` overrides `#modalLayer`'s `pointer-events: none`) with a title, the congratulations text (H<sub>ω<sup>3</sup>2</sub>) and 8 career stats
+- [x] Its three buttons: `Download your Save` (reuses `downloadSave()`), `Start from Scratch` (a `Cancel` / `OK` confirmation -> `fullReset()`: clipboard backup -> wipe -> reload) and `Keep Playing` (`closeModal('endgame')`)
+- [x] Layering fix: `.modalContainer { z-index: 2 }` / `.endgameContainer { z-index: 1 }` (both used to be `z-index: auto` children of `#modalLayer`, so DOM order decided and a confirmation opened from the screen was hidden); `#notification` was raised to `z-index: 4` (above `#modalLayer`'s 3)
+- [x] Version: `VERSION = "0.5.0"` / `VERSION_NAME = "The Ringularity Update"` / `VERSION_DATE = "September 28th, 2026"` (`IS_BETA` stays `false`, the save key is still `ordinalPRINGLESsave`); `fixOldSaves()` gained the non-structural `0.4.3 / 0.4.3p3 -> 0.5.0` marker branch
+- [x] Smoke test `tests/endgame.smoke.js` (71 checks: version and migration, button visibility and the latch, the one-time alert, the screen and its stats, wipe/download, layering and Cancel/OK semantics, static wiring)
+
+**Remaining work**
+
+- [ ] The former "later milestones" are now **open questions** for later maintainers / the community and are no longer part of this work: `Q4` (new `singFunctions` in the 500-2000 range), `Q1/Q2/Q3` (Ringularity balance) and `Q7` (a post-completion loop). See **§11.2** (which also lists the newly added Q9-Q16).
+
+**How to verify**: six offline smoke tests (pure Node, no browser, no build step), all run as
+`node tests/<name>.smoke.js "<repository root>"`:
+
+- `ringularity` (70 checks): cap parameterisation, Milestones, the Charge ledger, `singEffects[3..5]`, save round-trips, lock guards, UI show/hide, the Endgame alert.
+- `imaginaryShifts` (89 checks): EUP 305/402 - costs and prerequisites, the Perfected multiplier, the Imaginary Shift thresholds/reset/cap, iFactor buying and display, save round-trips and broken-save repair, plus a full-table placeholder scan.
+- `endgame` (71 checks): the version and the `0.4.3p3 -> 0.5.0` migration, button visibility and the latch, the one-time alert, the End screen and its stats, wipe/download, layering and `Cancel`/`OK` semantics, static wiring (including ".modalContainer must sit above .endgameContainer").
+- `nanGuards` (106 checks): the NaN/Infinity guards for `format()`, `chargeReq()`, the BUP overflow, broken-save repair and more.
+- `ordinalRecursion` (48 checks): the recursion-depth budgets of the Ordinal display and Hardy.
+- `fuzz`: randomised runs plus save corruption, printing `0 violation(s), 0 load error(s)`.
 
 ---
 
-*文档结束。实现阶段请以本文档的验收标准（§9）逐项勾选，并在 §11 的开放问题上先取得结论。*
+*End of document. Acceptance is checked item by item against §9; the open questions are listed in §11.*
+
+
+
+
+
+
+
+
+
+
 

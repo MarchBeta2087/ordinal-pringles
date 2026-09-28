@@ -36,10 +36,24 @@ function updateAllSingularityHTML(){
         updateSingularityHTML(i)
     }
 }
+let hasUnlockedTheEnd = () => data.sing.endgame
+function updateEndgameButtonHTML(){
+    let shown = hasUnlockedTheEnd()
+    DOM('theEndButton').style.display = shown ? 'block' : 'none'
+    DOM('ringularityEndgameControls').style.display = shown ? 'flex' : 'none'
+    DOM('singEndgameButton').style.display = shown ? 'block' : 'none'
+}
 function checkRingularityEndgame(){
-    if(!hasReachedRingularityEndgame() || data.sing.endgame) return
-    data.sing.endgame = true
-    createAlert('ENDGAME!', 'Your Ringularity has reached a Density of H<sub>&omega;<sup>3</sup>2</sub>, and with it the Endgame! Thank you for playing Ordinal Pringles :)', 'Wow!')
+    /*
+        The End is a permanent unlock: `data.sing.endgame` is the latch, because an Obliteration resets
+        both Densities (byteReset), so the Densities themselves cannot be used for this. The alert fires
+        exactly once, and the button is re-synced on every update (and on load) so it is always correct.
+    */
+    if(!data.sing.endgame && (hasReachedRingularityEndgame() || data.sing.highestLevel[1] >= RINGULARITY_CAP)){
+        data.sing.endgame = true
+        createAlert('ENDGAME!', 'Your Ringularity has reached a Density of H<sub>&omega;<sup>3</sup>2</sub>, and with it the Endgame! A new button has appeared: <b>The End</b> - thank you for playing Ordinal Pringles :)', 'Wow!')
+    }
+    updateEndgameButtonHTML()
 }
 function updateSingularityHTML(n){
     DOM(`singCostText`).innerHTML = `You have <span style="color: goldenrod">${data.incrementy.charge} Charge</span>`

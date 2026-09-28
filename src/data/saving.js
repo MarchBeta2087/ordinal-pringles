@@ -1,7 +1,7 @@
 //Version Flags
-const VERSION = "0.4.3p3"
-const VERSION_NAME = "The Pringle Update"
-const VERSION_DATE = "February 16th, 2025"
+const VERSION = "0.5.0"
+const VERSION_NAME = "The Ringularity Update"
+const VERSION_DATE = "September 28th, 2026"
 const IS_BETA = false
 const SAVE_PATH = () => IS_BETA ? "ordinalPRINGLESBETAsave" : "ordinalPRINGLESsave"
 
@@ -34,11 +34,18 @@ function load(first = false) {
 
 // Converting the strings back into their proper types
 function unpackSave(main=getDefaultPlayer(), data) {
+    /*
+        Guard rail: a NaN number field is serialized as null, and "typeof null === 'object'" used to
+        make Object.keys(null) throw - which aborted the whole load and silently made the game fall
+        back to a fresh save. Null/undefined entries are skipped instead (the default is kept).
+    */
+    if (data === null || data === undefined) return main
     if (typeof data === "object") {
         Object.keys(data).forEach(i => {
+            if (data[i] === null || data[i] === undefined) return
             if (main[i] instanceof Decimal) {
                 main[i] = D(data[i]!==null?data[i]:main[i])
-            } else if (typeof main[i]  == "object") {
+            } else if (typeof main[i]  == "object" && main[i] !== null) {
                 unpackSave(main[i], data[i])
             } else {
                 main[i] = data[i]
@@ -59,9 +66,87 @@ function fixOldSaves(){
     if(data.sToggles[14] === false) data.sToggles[14] = true
 
     //Decimal Fix
-    if(Number.isNaN(data.incrementy.amt.toNumber())) data.incrementy.amt = D(0)
-    if(Number.isNaN(data.ord.ordinal.toNumber())) data.ord.ordinal = D(0)
-    if(Number.isNaN(data.markup.powers.toNumber())) data.markup.powers = D(0)
+    /*
+        NaN and "Decimal Infinity" (mag === Infinity, i.e. the value overflowed BreakEternity itself)
+        are both broken states that used to crash format() as soon as they were rendered, so they are
+        repaired on load. Do NOT test Number.isFinite here: a legit Incrementy or Ordinal can be far
+        beyond Number.MAX_VALUE (e.g. 5.487e744), and toNumber() is Infinity for those as well.
+    */
+    if(Number.isNaN(data.incrementy.amt.toNumber()) || data.incrementy.amt.mag === Number.POSITIVE_INFINITY) data.incrementy.amt = D(0)
+    if(Number.isNaN(data.ord.ordinal.toNumber()) || data.ord.ordinal.mag === Number.POSITIVE_INFINITY) data.ord.ordinal = D(0)
+    if(Number.isNaN(data.markup.powers.toNumber()) || data.markup.powers.mag === Number.POSITIVE_INFINITY) data.markup.powers = D(0)
+    // Booster Power/Overcharge: a NaN or Infinity here makes every getOverflowEffect() NaN/Infinity
+    // (and with it the OP and AutoBuyer speed chains), so it is repaired on load too.
+    if(!Number.isFinite(data.overflow.bp)) data.overflow.bp = 1
+    if(!Number.isFinite(data.overflow.oc)) data.overflow.oc = 1
+    // Darkness: a broken Negative Charge / Drain ledger used to stay broken (and a NaN number is
+    // saved as null, which then broke unpackSave() itself).
+    if(!Number.isFinite(data.darkness.negativeCharge)) data.darkness.negativeCharge = 0
+    if(!Number.isFinite(data.darkness.chargeSpent)) data.darkness.chargeSpent = 0
+    if(!Number.isFinite(data.darkness.totalDrains)) data.darkness.totalDrains = 0
+    if(!Number.isFinite(data.darkness.sacrificedCharge)) data.darkness.sacrificedCharge = 0
+    if(!Array.isArray(data.darkness.drains) || data.darkness.drains.length !== drainData.length) data.darkness.drains = Array(drainData.length).fill(0)
+    for (let i = 0; i < data.darkness.drains.length; i++) {
+        if(!Number.isFinite(data.darkness.drains[i])) data.darkness.drains[i] = 0
+    }
+    if(!Array.isArray(data.darkness.levels) || data.darkness.levels.length !== 3) data.darkness.levels = Array(3).fill(0)
+    for (let i = 0; i < data.darkness.levels.length; i++) {
+        if(!Number.isFinite(data.darkness.levels[i])) data.darkness.levels[i] = 0
+    }
+    // Alephs/Cardinals: a NaN or Infinity here feeds every Aleph effect, the AutoClicker speed and the
+    // display, so those are repaired too.
+    if(!Array.isArray(data.collapse.alephs) || data.collapse.alephs.length !== alephData.length) data.collapse.alephs = Array(alephData.length).fill(D(0))
+    for (let i = 0; i < data.collapse.alephs.length; i++) {
+        data.collapse.alephs[i] = D(data.collapse.alephs[i])
+        if(Number.isNaN(data.collapse.alephs[i].toNumber()) || data.collapse.alephs[i].mag === Number.POSITIVE_INFINITY) data.collapse.alephs[i] = D(0)
+    }
+    data.collapse.cardinals = D(data.collapse.cardinals)
+    data.collapse.bestCardinalsGained = D(data.collapse.bestCardinalsGained)
+    if(Number.isNaN(data.collapse.cardinals.toNumber()) || data.collapse.cardinals.mag === Number.POSITIVE_INFINITY) data.collapse.cardinals = D(0)
+    if(Number.isNaN(data.collapse.bestCardinalsGained.toNumber()) || data.collapse.bestCardinalsGained.mag === Number.POSITIVE_INFINITY) data.collapse.bestCardinalsGained = D(0)
+    data.ord.over = D(data.ord.over)
+    if(Number.isNaN(data.ord.over.toNumber()) || data.ord.over.mag === Number.POSITIVE_INFINITY) data.ord.over = D(0)
+    data.chal.decrementy = D(data.chal.decrementy)
+    if(Number.isNaN(data.chal.decrementy.toNumber()) || data.chal.decrementy.mag === Number.POSITIVE_INFINITY || data.chal.decrementy.lt(1)) data.chal.decrementy = D(1)
+    // The Ordinal Length drives the display recursion depth, so it is clamped on load as well.
+    if(!Number.isFinite(data.ord.trim)) data.ord.trim = 10
+    data.ord.trim = Math.min(Math.max(data.ord.trim, MIN_ORD_TRIM), MAX_ORD_TRIM)
+    // Singularities: densities above their cap would grant free Density (and break the Charge ledger).
+    for (let i = 0; i < data.sing.level.length; i++) {
+        if(!Number.isFinite(data.sing.level[i])) data.sing.level[i] = 0
+        data.sing.level[i] = Math.min(Math.max(data.sing.level[i], 0), singCap(i))
+        if(!Number.isFinite(data.sing.highestLevel[i]) || data.sing.highestLevel[i] < data.sing.level[i]) data.sing.highestLevel[i] = data.sing.level[i]
+    }
+    /*
+        Generic numeric hygiene: any plain-number field or array entry that became NaN/Infinity is
+        reset, so a corrupted save cannot keep feeding NaN into the effect chains.
+    */
+    const numericSections = {
+        boost: ['amt', 'total', 'times', 'bottomRowCharges'],
+        incrementy: ['charge', 'totalCharge', 'rebuyableAmt'],
+        collapse: ['times'],
+        darkness: ['totalDrains', 'negativeCharge', 'chargeSpent', 'sacrificedCharge'],
+        chal: ['completions'],
+        hierarchies: ['rebuyableAmt'],
+        baseless: ['anRebuyables', 'bestOrdinalInMode', 'alephNull', 'mode', 'shifts'],
+        omega: ['aoRebuyables', 'bestFBInPurification', 'bestRemnants', 'alephOmega', 'whichPurification'],
+        obliterate: ['unstableFactors', 'pringleAmount', 'energy', 'passiveEnergy', 'instability', 'times'],
+        markup: ['shifts'],
+        imaginary: ['shifts', 'factors'],
+        ord: ['trim'],
+    }
+    for (const section of Object.keys(numericSections)) {
+        const block = data[section]
+        if (!block) continue
+        for (const key of numericSections[section]) {
+            const v = block[key]
+            if (Array.isArray(v)) {
+                for (let i = 0; i < v.length; i++) if(!Number.isFinite(v[i])) v[i] = 0
+            } else if (typeof v === 'number' && !Number.isFinite(v)) {
+                block[key] = 0
+            }
+        }
+    }
     data.incrementy.amt = D(data.incrementy.amt)
     data.ord.ordinal = D(data.ord.ordinal)
     data.ord.over = D(data.ord.over)
@@ -71,12 +156,32 @@ function fixOldSaves(){
     for (let i = 0; i < data.hierarchies.ords.length; i++) {
         data.hierarchies.ords[i].ord = D(data.hierarchies.ords[i].ord)
         data.hierarchies.ords[i].over = D(data.hierarchies.ords[i].over)
+        // A broken (NaN or Decimal-Infinity) Hierarchy Ordinal used to crash calcOrdPoints() on every
+        // tick, so it gets repaired on load as well - see increaseHierarchies().
+        if(Number.isNaN(data.hierarchies.ords[i].ord.toNumber()) || data.hierarchies.ords[i].ord.mag === Number.POSITIVE_INFINITY) data.hierarchies.ords[i].ord = D(0)
+        if(Number.isNaN(data.hierarchies.ords[i].over.toNumber()) || data.hierarchies.ords[i].over.mag === Number.POSITIVE_INFINITY) data.hierarchies.ords[i].over = D(0)
+    }
+    // The HUP AutoBuyer can store a non-finite level while a resource is broken, and the hierarchy
+    // buyables would keep rendering it - clamp those so a repaired save is fully usable again.
+    for (let i = 0; i < data.hierarchies.rebuyableAmt.length; i++) {
+        if(!Number.isFinite(data.hierarchies.rebuyableAmt[i])) data.hierarchies.rebuyableAmt[i] = 0
     }
 
     //AutoShift Fix
     if(data.markup.shifts > 7) data.markup.shifts = 7
+    // The Imaginary Factor layer (EUP 402) is capped the same way, and its ledger has to stay 7 long.
+    if(!Array.isArray(data.imaginary.factors) || data.imaginary.factors.length !== 7) data.imaginary.factors = Array(7).fill(0)
+    data.imaginary.shifts = clampImaginaryShifts(data.imaginary.shifts)
 
     if(data.loadedVersion === "0.4.3λ" || data.loadedVersion === "0.4.3γ") data.loadedVersion = "0.4.3"
+
+    //v0.4.3 / v0.4.3p3 => v0.5.0
+    /*
+        Nothing structural has to be migrated: data.sing.endgame, data.sing.ringularityTutorial and
+        data.imaginary.shifts / data.imaginary.factors all have defaults in getDefaultPlayer(), and
+        unpackSave() only overwrites the keys a save actually contains.
+    */
+    if(data.loadedVersion === "0.4.3p3" || data.loadedVersion === "0.4.3") data.loadedVersion = "0.5.0"
 
     if(data.loadedVersion === "0.4b7"){
         data.obliterate.instability = data.obliterate.times
@@ -245,7 +350,7 @@ async function downloadSave() {
     } catch (e) {
         showNotification(`Save download failed.\n${e}`)
         console.error(e);
-        closeModal(1)
+        closeModal('prompt')
     }
 }
 

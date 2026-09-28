@@ -24,6 +24,7 @@ function updateMarkupHTML(){
     for (let i = 0; i < data.factors.length; i++) {
         DOM(`factor${i}`).innerText = hasFactor(i)?`Factor ${i+1} [${data.boost.hasBUP[11]?formatWhole(data.factors[i]+getBUPEffect(12)):formatWhole(data.factors[i])}] ${formatWhole(factorEffect(i))}x\nCost: ${formatWhole(factorCost(i))} Ordinal Powers`:`Factor ${i+1}\nLOCKED`
     }
+    if(getEUPEffect(4, 1)) updateImaginaryShiftHTML()
     DOM("factorText").innerText = `Your Factors are multiplying AutoClicker speed by a total of ${formatWhole(totalFactorEffect())}x`
 
     //DOM("factorShiftButton").style.borderColor = data.ord.base===3&&data.boost.times===0&&!hasSluggishMilestone(0)?`#1e47d0`:`#785c13`
@@ -71,28 +72,49 @@ function opMult(){
 
     return D(mult).times(alephEffect(2))
 }
-function opGain(ord = data.ord.ordinal, base = data.ord.base, over = data.ord.over) {
+const MAX_OP_GAIN_DEPTH = 1000
+function opGain(ord = data.ord.ordinal, base = data.ord.base, over = data.ord.over, depth = 0) {
     if(D(ord).eq(data.ord.ordinal) && D(ord).gte(Number.MAX_VALUE)) return 4e256
     if(D(ord).eq(data.ord.ordinal)) ord = Number(ord)
+    // Guard rails: NaN/degenerate inputs and a spent recursion budget return the same
+    // cap the Number.MAX_VALUE check above uses, instead of recursing forever.
+    if (Number.isNaN(ord) || !Number.isFinite(base) || base <= 1 || depth >= MAX_OP_GAIN_DEPTH) return 4e256
     if (ord < base) return Decimal.add(ord, over).toNumber()
     let pow = Math.floor(Math.log(ord + 0.1) / Math.log(base))
     let divisor = Math.pow(base, pow)
     let mult = Math.floor((ord + 0.1) / divisor)
-    return Math.min(4e256, 10 ** Math.min(4e256, opGain(pow, base, 0)) * mult + Math.min(4e256, opGain(ord - divisor * mult, base, over)))
+    // Guard rail: a rounding error in Math.pow can make "mult" zero (or the term not shrink),
+    // and the recursion below would then be handed the very same Ordinal forever.
+    if (!Number.isFinite(divisor) || !Number.isFinite(mult) || mult < 1 || ord - divisor * mult >= ord) return Decimal.add(ord, over).toNumber()
+    return Math.min(4e256, 10 ** Math.min(4e256, opGain(pow, base, 0, depth + 1)) * mult + Math.min(4e256, opGain(ord - divisor * mult, base, over, depth + 1)))
 }
 let totalOPGain = () => Decimal.min(4e256, D(opGain()).times(opMult()))
 function calcOrdPoints(ord = data.ord.ordinal, base = data.ord.base, over = data.ord.over, trim=0) {
     let opBase = new Decimal(10)
     if (trim >= 10) return new Decimal(0)
-    if (Decimal.lt(ord, base)) {
-        return Decimal.add(ord, over)
-    } else if (new Decimal(ord).slog(base).lt(base)) {
-        let powerOfOmega = Decimal.log(new Decimal(ord).add(0.1), base).floor()
+    /*
+        Guard rails. This recursion used to run forever on a broken (NaN) Ordinal: every comparison
+        below is false for NaN, so the "slog" branch kept handing itself NaN again - and it passed
+        "trim" unchanged, so the "trim >= 10" cap above never triggered either. The result was
+        "RangeError: Maximum call stack size exceeded" inside calcOrdPoints itself.
+    */
+    let pointsOrd = D(ord), pointsOver = D(over)
+    if (isNaN(pointsOrd.mag) || isNaN(pointsOrd.layer) || isNaN(pointsOrd.sign)
+        || isNaN(pointsOver.mag) || isNaN(pointsOver.layer) || isNaN(pointsOver.sign)) return new Decimal(0)
+    if (!(base >= 1) || !Number.isFinite(base)) return new Decimal(0)
+    if (Decimal.lt(pointsOrd, base)) {
+        return Decimal.add(pointsOrd, pointsOver)
+    }
+    let slogged = new Decimal(pointsOrd).slog(base)
+    // Guard rail: never recurse on a slog that failed or made no progress.
+    if (isNaN(slogged.mag) || isNaN(slogged.layer) || isNaN(slogged.sign) || slogged.eq(pointsOrd)) return new Decimal(0)
+    if (slogged.lt(base)) {
+        let powerOfOmega = Decimal.log(new Decimal(pointsOrd).add(0.1), base).floor()
         let highestPower = Decimal.pow(base,powerOfOmega)
-        let powerMultiplier = Decimal.floor(Decimal.div(new Decimal(ord).add(0.1),highestPower))
-        return Decimal.add(Decimal.mul(Decimal.pow(opBase, calcOrdPoints(powerOfOmega,base,0)), powerMultiplier), new Decimal(ord).lt(Decimal.tetrate(base, 3)) ? calcOrdPoints(new Decimal(ord).sub(Decimal.mul(highestPower,powerMultiplier)),base,over,trim+1) : 0)
+        let powerMultiplier = Decimal.floor(Decimal.div(new Decimal(pointsOrd).add(0.1),highestPower))
+        return Decimal.add(Decimal.mul(Decimal.pow(opBase, calcOrdPoints(powerOfOmega,base,0,trim + 1)), powerMultiplier), new Decimal(pointsOrd).lt(Decimal.tetrate(base, 3)) ? calcOrdPoints(new Decimal(pointsOrd).sub(Decimal.mul(highestPower,powerMultiplier)),base,pointsOver,trim+1) : 0)
     } else {
-        return new Decimal(opBase).tetrate(calcOrdPoints(new Decimal(ord).slog(base),base,0,trim))
+        return new Decimal(opBase).tetrate(calcOrdPoints(slogged,base,0,trim + 1))
     }
 }
 const fsReqs = [200, 1000, 1e4, 3.5e5, 1e12, 1e21, 5e100, Infinity, Infinity]
@@ -147,17 +169,54 @@ function fsReset(){
 }
 
 /*
-        WIP, to be added in a future update
-
-
+    The Imaginary Factor layer (unlocked by Energy Upgrade 402) is a second, permanent set of
+    Factor Shifts: every Imaginary Shift unlocks the next Imaginary Factor (up to 7, see
+    factors.js) and raises its tier, but it resets the Imaginary Factor counts, so those have to
+    be bought again with Ordinal Powers. The requirements below are balance parameters and the
+    shift count itself is never reset by any other reset, which makes this a permanent layer.
+*/
 let imaginaryShiftData = [
-
+    {req: 1e105},
+    {req: 1e130},
+    {req: 1e155},
+    {req: 1e180},
+    {req: 1e205},
+    {req: 1e230},
+    {req: 1e255},
 ]
-function imaginaryShift(){
-    if(data.baseless.baseless) return
 
-    let req = getImaginaryShiftReq(data.imaginary.shifts)
+let hasImaginaryShifts = () => !!getEUPEffect(4, 1)
+let getImaginaryShiftReq = (shifts) => shifts >= imaginaryShiftData.length ? D(Infinity) : D(imaginaryShiftData[shifts].req)
+let maxedImaginaryShifts = () => data.imaginary.shifts >= imaginaryShiftData.length
+let canPerformImaginaryShift = () => hasImaginaryShifts() && !data.baseless.baseless && !maxedImaginaryShifts()
+    && data.markup.powers.gte(getImaginaryShiftReq(data.imaginary.shifts))
+
+function imaginaryShiftConfirm(){
+    if(!canPerformImaginaryShift()) return
+    if(!data.sToggles[3]) return imaginaryShift()
+    createConfirmation('Are you sure?', 'Performing an Imaginary Shift will unlock the next Imaginary Factor in exchange for resetting your Imaginary Factors!', 'No way!', 'Yes, lets do this.', imaginaryShift)
 }
 
-let getImaginaryShiftReq
- */
+function imaginaryShift(){
+    if(!canPerformImaginaryShift()) return updateImaginaryShiftHTML()
+
+    ++data.imaginary.shifts
+    for (let i = 0; i < data.imaginary.factors.length; i++) {
+        data.imaginary.factors[i] = 0
+    }
+
+    updateImaginaryShiftHTML()
+    updateMarkupHTML()
+}
+
+function updateImaginaryShiftHTML(){
+    DOM(`imaginaryShiftButton`).innerHTML = maxedImaginaryShifts()
+        ? `Perform an Imaginary Shift [${data.imaginary.shifts}/${imaginaryShiftData.length}]<br><span style="font-size: 0.7rem">All Imaginary Factors are unlocked!</span>`
+        : `Perform an Imaginary Shift [${data.imaginary.shifts}/${imaginaryShiftData.length}]<br><span style="font-size: 0.7rem">Requires ${format(getImaginaryShiftReq(data.imaginary.shifts))} Ordinal Powers</span>`
+
+    for (let i = 0; i < data.imaginary.factors.length; i++) {
+        DOM(`iFactor${i}`).innerText = hasFactor(i, true)
+            ? `Factor ${i+1}i [${data.boost.hasBUP[11] ? formatWhole(data.imaginary.factors[i]+getBUPEffect(12)) : formatWhole(data.imaginary.factors[i])}] ${formatWhole(factorEffect(i, true))}x\nCost: ${formatWhole(factorCost(i, true))} Ordinal Powers`
+            : `Factor ${i+1}i\nLOCKED`
+    }
+}

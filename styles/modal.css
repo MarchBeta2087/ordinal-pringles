@@ -13,6 +13,8 @@
     color: #9a9a9a;
     width: 17rem;
     pointer-events: all;
+    /* Above .endgameContainer, so a confirmation opened from The End screen is visible right away. */
+    z-index: 2;
 }
 .modalButton{
     width: 5rem;
@@ -23,4 +25,56 @@
     margin-left: 0.25rem;
     margin-right: 0.25rem;
     margin-top: 0.25rem;
+}
+
+/*
+    The End: the full-screen congratulations screen (see showEndgameScreen() in src/helpers/modal.js).
+    It lives inside #modalLayer, which is pointer-events: none, so this container has to opt back in.
+    Its z-index stays below .modalContainer: a confirmation (e.g. Start from Scratch) has to show up
+    on top of this screen instead of behind it.
+*/
+.endgameContainer{
+    display: none;
+    position: fixed;
+    inset: 0;
+    pointer-events: all;
+    z-index: 1;
+    background: radial-gradient(circle at 50% 40%, #2a0d3a 0%, #050505 70%);
+    align-items: center;
+    place-content: center;
+    text-align: center;
+    font-family: DosisLight, serif;
+    overflow-y: auto;
+}
+.endgameBox{
+    width: min(90vw, 46rem);
+    padding: 2rem 1rem;
+    border: 2px solid #d56cdc;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #d6d6d6;
+}
+.endgameTitle{
+    color: #d56cdc;
+    font-family: DosisBold, serif;
+    font-size: 3rem;
+    letter-spacing: 0.4rem;
+    margin: 0;
+}
+.endgameSubtitle{
+    color: #d5a60b;
+    margin: 0.25rem 0 1rem 0;
+}
+.endgameText{
+    margin: 0.5rem 0 0 0;
+}
+.endgameStats{
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: #9a9a9a;
+    line-height: 1.6;
+}
+.endgameButton{
+    width: 11rem;
+    height: 2.5rem;
 }
